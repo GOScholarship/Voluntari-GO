@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voluntari GO</title>
+<style>
+:root{--ink:#14201A;--mut:#4A5650;--bg:#F6F7F4;--line:#DDE2DB;--mag:#C2107F;--ora:#D95900;--tint:#FBE6D6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+.stripe{height:6px;background:linear-gradient(90deg,#E61794 50%,#D95900 50%)}
+#app{max-width:560px;margin:0 auto;padding:0 0 84px}
+h1{font-size:22px;margin:0}
+.top{display:flex;justify-content:space-between;align-items:center;padding:18px 16px 10px}
+.top button{background:none;border:0;color:var(--mag);font:600 14px system-ui,-apple-system,sans-serif;min-height:44px;cursor:pointer}
+.card{margin:0 16px 12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
+.card.go{cursor:pointer}
+.m{font-size:14px;color:var(--mut);margin:4px 0 0}
+.bar{height:8px;border-radius:4px;background:#E3E8E1;overflow:hidden;margin:10px 0 6px}
+.bar i{display:block;height:100%;background:var(--ora)}
+.tag{font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--tint);color:#8A3A00;display:inline-block;margin-top:6px}
+.tag.g{background:#ECEAE6;color:#4A4540}
+.btn{display:flex;align-items:center;justify-content:center;width:calc(100% - 32px);min-height:48px;margin:0 16px 10px;border-radius:12px;border:1.5px solid var(--mag);background:var(--mag);color:#fff;font:600 16px system-ui,-apple-system,sans-serif;cursor:pointer}
+.btn.o{background:#fff;color:var(--mag)}
+.btn:disabled{opacity:.5}
+label{font-size:14px;font-weight:600}
+input[type=text],input[type=email]{width:100%;min-height:48px;border:1px solid #B9C2B7;border-radius:10px;padding:0 12px;font:16px system-ui,-apple-system,sans-serif;margin:4px 0 12px;background:#fff}
+.r{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #EEF1EC;font-size:14px}
+.r:last-child{border:0}.r span:first-child{color:var(--mut)}.r span:last-child{text-align:right}
+a{color:var(--mag)}
+.s{margin:14px 20px 6px;font-size:13px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.back{background:none;border:0;color:var(--mag);font:600 15px system-ui,-apple-system,sans-serif;padding:14px 16px 0;min-height:44px;cursor:pointer}
+.poster{width:100%;display:block;max-height:420px;object-fit:contain;background:#E3E8E1}
+.offer{background:var(--tint);border-color:#F2C19B}
+.nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#fff;border-top:1px solid var(--line)}
+.nav button{flex:1;min-height:52px;border:0;background:none;font:600 14px system-ui,-apple-system,sans-serif;color:var(--mut);cursor:pointer}
+.nav button.on{color:var(--mag)}
+#toast{position:fixed;left:16px;right:16px;bottom:70px;background:var(--ink);color:#fff;padding:12px 14px;border-radius:12px;display:none;font-size:14px;z-index:9}
+.chk{display:flex;gap:8px;align-items:flex-start;font-weight:400;margin:0 0 14px;font-size:14px}
+.chk input{margin-top:3px;width:20px;height:20px}
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<main id="app"></main>
+<div id="toast" role="status"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<script>
+const db = supabase.createClient('https://sdhhzptvbkmeazrqkncw.supabase.co', 'sb_publishable_adna1O2TC3b99dIjxlU9Rw_SLvo8GYR');
+const S = { session: null, me: null, events: [], mine: {}, view: 'list', tab: 'all', id: null, roster: [], mode: 'register', step: 'form', email: '' };
+const $ = document.getElementById('app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const TZ = 'Europe/Bucharest';
+const fD = d => new Intl.DateTimeFormat('ro-RO', { weekday: 'long', day: 'numeric', month: 'long', timeZone: TZ }).format(new Date(d));
+const fT = d => new Intl.DateTimeFormat('ro-RO', { hour: '2-digit', minute: '2-digit', timeZone: TZ }).format(new Date(d));
+
+function toast(m) {
+  const t = document.getElementById('toast');
+  t.textContent = m; t.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 4500);
+}
+
+async function load() {
+  if (!S.session) return render();
+  await db.rpc('refresh_offers');
+  const [ev, su, me] = await Promise.all([
+    db.from('events').select('*').eq('status', 'active').gt('ends_at', new Date().toISOString()).order('starts_at'),
+    db.from('signups').select('event_id,status,offer_expires_at'),
+    S.me ? { data: S.me } : db.from('profiles').select('first_name,last_name').eq('id', S.session.user.id).maybeSingle()
+  ]);
+  S.events = ev.data || [];
+  S.mine = Object.fromEntries((su.data || []).map(r => [r.event_id, r]));
+  S.me = me.data || S.me;
+  if (S.view === 'detail') {
+    const r = await db.rpc('event_roster', { p_event: S.id });
+    S.roster = r.data || [];
+  }
+  render();
+}
+
+function render() {
+  if (!S.session) return $.innerHTML = authView();
+  $.innerHTML = S.view === 'detail' ? detailView() : listView();
+}
+
+function authView() {
+  const reg = S.mode === 'register';
+  if (S.step === 'code') return `<div class="top"><h1>Confirmă emailul</h1></div>
+  <div class="card"><p class="m" style="margin:0 0 12px">Am trimis un email la <b>${esc(S.email)}</b>. Apasă pe butonul din email sau scrie aici codul primit.</p>
+  <form data-f="code"><label for="c">Cod din email</label><input type="text" id="c" inputmode="numeric" autocomplete="one-time-code">
+  <button class="btn" style="margin:0;width:100%">Intră</button></form></div>
+  <button class="back" data-a="back-auth">Înapoi</button>`;
+  return `<div class="top"><h1>${reg ? 'Creare cont voluntar' : 'Intră în cont'}</h1></div>
+  <p class="m" style="margin:0 20px 14px">${reg ? 'Completezi o singură dată. Îți trimitem un email de confirmare, apoi rămâi conectat.' : 'Scrie emailul cu care te-ai înregistrat.'}</p>
+  <form data-f="auth"><div class="card">
+  ${reg ? `<label for="fn">Prenume</label><input type="text" id="fn" autocomplete="given-name" required>
+  <label for="ln">Nume</label><input type="text" id="ln" autocomplete="family-name" required>` : ''}
+  <label for="em">Email</label><input type="email" id="em" autocomplete="email" required></div>
+  ${reg ? `<label class="chk" style="margin:0 20px 14px"><input type="checkbox" id="ok" required><span>Sunt de acord să apar ca „Prenume I.” în listele de înscriși, vizibile celorlalți voluntari.</span></label>` : ''}
+  <button class="btn">${reg ? 'Trimite linkul de confirmare' : 'Trimite linkul de intrare'}</button></form>
+  <p class="m" style="margin:6px 20px"><a href="#" data-a="mode">${reg ? 'Ai deja cont? Intră' : 'Nu ai cont? Creează unul'}</a></p>`;
+}
+
+function top(t) {
+  return `<div class="top"><h1>${t}</h1><button data-a="out">Ieși${S.me ? ' (' + esc(S.me.first_name) + ')' : ''}</button></div>`;
+}
+
+function listView() {
+  const list = S.tab === 'mine' ? S.events.filter(e => S.mine[e.id]) : S.events;
+  const cards = list.map(e => {
+    const taken = e.confirmed_count + e.offered_count, m = S.mine[e.id];
+    const tag = m ? (m.status === 'confirmed' ? '<span class="tag">Ești înscris</span>' : m.status === 'offered' ? '<span class="tag">Ai un loc rezervat: confirmă</span>' : '<span class="tag">Ești pe lista de așteptare</span>')
+      : taken >= e.capacity ? `<span class="tag g">Complet · ${e.waitlist_count} în așteptare</span>` : '';
+    return `<div class="card go" data-a="open" data-id="${e.id}"><b style="font-size:17px">${esc(e.title)}</b>
+    <p class="m">${esc(fD(e.starts_at))} · ${fT(e.starts_at)}–${fT(e.ends_at)} · ${esc(e.location)}</p>
+    <div class="bar"><i style="width:${Math.min(100, taken / e.capacity * 100)}%"></i></div>
+    <p class="m" style="margin:0">${taken} din ${e.capacity} locuri ocupate</p>${tag}</div>`;
+  }).join('');
+  return top('Evenimente') + (cards || `<div class="card"><p class="m">${S.tab === 'mine' ? 'Nu ești înscris la niciun eveniment.' : 'Momentan nu sunt evenimente.'}</p></div>`) +
+    `<nav class="nav"><button data-a="tab" data-t="all" class="${S.tab === 'all' ? 'on' : ''}">Evenimente</button><button data-a="tab" data-t="mine" class="${S.tab === 'mine' ? 'on' : ''}">Evenimentele mele</button></nav>`;
+}
+
+function phoneLinks(p) {
+  const d = String(p || '').replace(/\D/g, '');
+  if (!d) return '';
+  const wa = d.startsWith('0') ? '4' + d : d;
+  return ` · <a href="tel:+${wa}">Sună</a> · <a href="https://wa.me/${wa}" target="_blank" rel="noopener">WhatsApp</a>`;
+}
+
+function detailView() {
+  const e = S.events.find(x => x.id === S.id);
+  if (!e) return `<button class="back" data-a="back">‹ Înapoi</button><div class="card"><p class="m">Evenimentul nu mai este disponibil.</p></div>`;
+  const m = S.mine[e.id], taken = e.confirmed_count + e.offered_count, free = e.capacity - taken;
+  const conf = S.roster.filter(r => r.status === 'confirmed'), wait = S.roster.filter(r => r.status !== 'confirmed');
+  const me = S.roster.find(r => r.is_me);
+  let act;
+  if (m && m.status === 'offered') act = `<div class="card offer"><b>S-a eliberat un loc</b><p class="m" style="color:var(--ink)">Locul e rezervat pentru tine până la ${fT(m.offer_expires_at)} (${esc(fD(m.offer_expires_at))}). Dacă nu confirmi, trece la următorul din listă.</p></div>
+    <button class="btn" data-a="accept">Confirm participarea</button><button class="btn o" data-a="leave">Renunț la loc</button>`;
+  else if (m) act = `<div class="card"><b>${m.status === 'confirmed' ? 'Ești înscris ca voluntar' : 'Ești pe lista de așteptare' + (me ? ', poziția ' + me.position : '')}</b></div><button class="btn o" data-a="leave">Anulează înscrierea</button>`;
+  else act = `<button class="btn" data-a="join">${free > 0 && e.waitlist_count === 0 ? 'Mă înscriu ca voluntar' : 'Intru pe lista de așteptare'}</button>`;
+  return `<button class="back" data-a="back">‹ Înapoi</button>
+  ${e.poster_url ? `<img class="poster" src="${esc(e.poster_url)}" alt="Afiș ${esc(e.title)}">` : ''}
+  <div class="top"><h1>${esc(e.title)}</h1></div>
+  <div class="card"><div class="r"><span>Data</span><span>${esc(fD(e.starts_at))}</span></div>
+  <div class="r"><span>Eveniment</span><span>${fT(e.starts_at)}–${fT(e.ends_at)}</span></div>
+  ${e.meet_at || e.meeting_point ? `<div class="r"><span>Întâlnire</span><span>${e.meet_at ? fT(e.meet_at) : ''} ${esc(e.meeting_point || '')}</span></div>` : ''}
+  <div class="r"><span>Locație</span><span>${esc(e.location)}${e.map_url ? ` · <a href="${esc(e.map_url)}" target="_blank" rel="noopener">Hartă</a>` : ''}</span></div>
+  ${e.contact_name ? `<div class="r"><span>Contact</span><span>${esc(e.contact_name)}${phoneLinks(e.contact_phone)}</span></div>` : ''}</div>
+  ${e.description ? `<p class="m" style="margin:0 20px 14px">${esc(e.description)}</p>` : ''}
+  <div class="card"><b>${taken} din ${e.capacity} locuri ocupate</b><div class="bar"><i style="width:${Math.min(100, taken / e.capacity * 100)}%"></i></div><p class="m" style="margin:0">${free > 0 ? free + ' locuri libere' : 'Complet'}</p></div>
+  ${act}
+  <div class="s">Înscriși (${conf.length})</div><div class="card">${conf.map(r => `<div class="r"><span>${esc(r.display_name)}${r.is_me ? ' (tu)' : ''}</span></div>`).join('') || '<p class="m">Nimeni încă.</p>'}</div>
+  <div class="s">Listă de așteptare (${wait.length})</div><div class="card">${wait.map((r, i) => `<div class="r"><span>${i + 1}. ${esc(r.display_name)}${r.is_me ? ' (tu)' : ''}</span><span>${r.status === 'offered' ? 'loc rezervat' : ''}</span></div>`).join('') || '<p class="m">Nimeni în așteptare.</p>'}</div>`;
+}
+
+async function run(fn, args) {
+  const { error } = await db.rpc(fn, args);
+  if (error) toast(error.message);
+  await load();
+}
+
+document.addEventListener('click', async ev => {
+  const el = ev.target.closest('[data-a]'); if (!el) return;
+  const a = el.dataset.a;
+  if (a === 'mode') { ev.preventDefault(); S.mode = S.mode === 'register' ? 'login' : 'register'; render(); }
+  else if (a === 'back-auth') { S.step = 'form'; render(); }
+  else if (a === 'out') { await db.auth.signOut(); }
+  else if (a === 'tab') { S.tab = el.dataset.t; render(); }
+  else if (a === 'open') { S.view = 'detail'; S.id = el.dataset.id; S.roster = []; render(); load(); }
+  else if (a === 'back') { S.view = 'list'; render(); }
+  else if (a === 'join') await run('join_event', { p_event: S.id });
+  else if (a === 'accept') await run('accept_offer', { p_event: S.id });
+  else if (a === 'leave' && confirm('Sigur vrei să renunți?')) await run('leave_event', { p_event: S.id });
+});
+
+document.addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const f = ev.target.dataset.f, v = id => (document.getElementById(id)?.value || '').trim();
+  if (f === 'auth') {
+    const reg = S.mode === 'register', email = v('em').toLowerCase();
+    const { error } = await db.auth.signInWithOtp({ email, options: {
+      shouldCreateUser: reg, data: reg ? { first_name: v('fn'), last_name: v('ln') } : undefined,
+      emailRedirectTo: location.origin + location.pathname } });
+    if (error) return toast(reg ? 'Nu am putut trimite emailul: ' + error.message : 'Nu există un cont cu acest email. Creează un cont nou.');
+    S.email = email; S.step = 'code'; render();
+  } else if (f === 'code') {
+    const { error } = await db.auth.verifyOtp({ email: S.email, token: v('c'), type: 'email' });
+    if (error) toast('Cod incorect sau expirat.');
+  }
+});
+
+let t;
+const later = () => { clearTimeout(t); t = setTimeout(load, 300); };
+db.auth.onAuthStateChange((_e, session) => {
+  S.session = session; if (!session) { S.me = null; S.view = 'list'; S.step = 'form'; }
+  load();
+});
+db.channel('live').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, later)
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, later).subscribe();
+</script>
+</body>
+</html>
