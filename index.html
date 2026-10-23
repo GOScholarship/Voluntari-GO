@@ -32,6 +32,7 @@ a{color:var(--mag)}
 .back{background:none;border:0;color:var(--mag);font:600 15px system-ui,-apple-system,sans-serif;padding:14px 16px 0;min-height:44px;cursor:pointer}
 .poster{width:100%;display:block;max-height:420px;object-fit:contain;background:#E3E8E1}
 .offer{background:var(--tint);border-color:#F2C19B}
+.x{background:#FBE9EC;border-color:#E3B4BE}
 .nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#fff;border-top:1px solid var(--line)}
 .nav button{flex:1;min-height:52px;border:0;background:none;font:600 14px system-ui,-apple-system,sans-serif;color:var(--mut);cursor:pointer}
 .nav button.on{color:var(--mag)}
@@ -115,7 +116,7 @@ function listView() {
     const taken = e.confirmed_count + e.offered_count, m = S.mine[e.id];
     const tag = e.status === 'cancelled' ? '<span class="tag g">Anulat</span>' : m ? (m.status === 'confirmed' ? '<span class="tag">Ești înscris</span>' : m.status === 'offered' ? '<span class="tag">Ai un loc rezervat: confirmă</span>' : '<span class="tag">Ești pe lista de așteptare</span>')
       : taken >= e.capacity ? `<span class="tag g">Complet · ${e.waitlist_count} în așteptare</span>` : '';
-    return `<div class="card go" data-a="open" data-id="${e.id}"><b style="font-size:17px">${esc(e.title)}</b>
+    return `<div class="card go${e.status === 'cancelled' ? ' x' : ''}" data-a="open" data-id="${e.id}"><b style="font-size:17px">${esc(e.title)}</b>
     <p class="m">${esc(fD(e.starts_at))} · ${fT(e.starts_at)}–${fT(e.ends_at)} · ${esc(e.location)}</p>
     <div class="bar"><i style="width:${Math.min(100, taken / e.capacity * 100)}%"></i></div>
     <p class="m" style="margin:0">${taken} din ${e.capacity} locuri ocupate</p>${tag}</div>`;
@@ -138,7 +139,7 @@ function detailView() {
   const conf = S.roster.filter(r => r.status === 'confirmed'), wait = S.roster.filter(r => r.status !== 'confirmed');
   const me = S.roster.find(r => r.is_me);
   let act;
-  if (e.status === 'cancelled') act = `<div class="card offer"><b>Evenimentul a fost anulat</b></div>` + (m ? '<button class="btn o" data-a="leave">Elimină din lista mea</button>' : '');
+  if (e.status === 'cancelled') act = `<div class="card x"><b>Evenimentul a fost anulat</b></div>` + (m ? '<button class="btn o" data-a="leave">Elimină din lista mea</button>' : '');
   else if (m && m.status === 'offered') act = `<div class="card offer"><b>S-a eliberat un loc</b><p class="m" style="color:var(--ink)">Locul e rezervat pentru tine până la ${fT(m.offer_expires_at)} (${esc(fD(m.offer_expires_at))}). Dacă nu confirmi, trece la următorul din listă.</p></div>
     <button class="btn" data-a="accept">Confirm participarea</button><button class="btn o" data-a="leave">Renunț la loc</button>`;
   else if (m) act = `<div class="card"><b>${m.status === 'confirmed' ? 'Ești înscris ca voluntar' : 'Ești pe lista de așteptare' + (me ? ', poziția ' + me.position : '')}</b></div><button class="btn o" data-a="leave">Anulează înscrierea</button>`;
