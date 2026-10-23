@@ -47,7 +47,7 @@ a{color:var(--mag)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <script>
 const db = supabase.createClient('https://sdhhzptvbkmeazrqkncw.supabase.co', 'sb_publishable_adna1O2TC3b99dIjxlU9Rw_SLvo8GYR');
-const S = { session: null, me: null, events: [], mine: {}, view: 'list', tab: 'all', id: null, roster: [], mode: 'register', step: 'form', email: '' };
+const S = { notes: [], session: null, me: null, events: [], mine: {}, view: 'list', tab: 'all', id: null, roster: [], mode: 'register', step: 'form', email: '' };
 const $ = document.getElementById('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const TZ = 'Europe/Bucharest';
@@ -63,14 +63,16 @@ function toast(m) {
 async function load() {
   if (!S.session) return render();
   await db.rpc('refresh_offers');
-  const [ev, su, me] = await Promise.all([
-    db.from('events').select('*').eq('status', 'active').gt('ends_at', new Date().toISOString()).order('starts_at'),
+  const [ev, su, me, nt] = await Promise.all([
+    db.from('events').select('*').gt('ends_at', new Date().toISOString()).order('starts_at'),
     db.from('signups').select('event_id,status,offer_expires_at'),
-    S.me ? { data: S.me } : db.from('profiles').select('first_name,last_name,is_admin').eq('id', S.session.user.id).maybeSingle()
+    S.me ? { data: S.me } : db.from('profiles').select('first_name,last_name,is_admin').eq('id', S.session.user.id).maybeSingle(),
+    db.from('notifications').select('id,message').is('read_at', null).order('created_at', { ascending: false })
   ]);
   S.events = ev.data || [];
   S.mine = Object.fromEntries((su.data || []).map(r => [r.event_id, r]));
   S.me = me.data || S.me;
+  S.notes = nt.data || [];
   if (S.view === 'detail') {
     const r = await db.rpc('event_roster', { p_event: S.id });
     S.roster = r.data || [];
@@ -106,17 +108,19 @@ function pageTop(t) {
 }
 
 function listView() {
-  const list = S.tab === 'mine' ? S.events.filter(e => S.mine[e.id]) : S.events;
+  const vis = S.events.filter(e => e.status === 'active' || S.mine[e.id]);
+  const list = S.tab === 'mine' ? vis.filter(e => S.mine[e.id]) : vis;
+  const notes = S.notes.length ? S.notes.map(n => `<div class="card offer"><p style="margin:0">${esc(n.message)}</p></div>`).join('') + '<button class="btn o" data-a="seen">Am văzut</button>' : '';
   const cards = list.map(e => {
     const taken = e.confirmed_count + e.offered_count, m = S.mine[e.id];
-    const tag = m ? (m.status === 'confirmed' ? '<span class="tag">Ești înscris</span>' : m.status === 'offered' ? '<span class="tag">Ai un loc rezervat: confirmă</span>' : '<span class="tag">Ești pe lista de așteptare</span>')
+    const tag = e.status === 'cancelled' ? '<span class="tag g">Anulat</span>' : m ? (m.status === 'confirmed' ? '<span class="tag">Ești înscris</span>' : m.status === 'offered' ? '<span class="tag">Ai un loc rezervat: confirmă</span>' : '<span class="tag">Ești pe lista de așteptare</span>')
       : taken >= e.capacity ? `<span class="tag g">Complet · ${e.waitlist_count} în așteptare</span>` : '';
     return `<div class="card go" data-a="open" data-id="${e.id}"><b style="font-size:17px">${esc(e.title)}</b>
     <p class="m">${esc(fD(e.starts_at))} · ${fT(e.starts_at)}–${fT(e.ends_at)} · ${esc(e.location)}</p>
     <div class="bar"><i style="width:${Math.min(100, taken / e.capacity * 100)}%"></i></div>
     <p class="m" style="margin:0">${taken} din ${e.capacity} locuri ocupate</p>${tag}</div>`;
   }).join('');
-  return pageTop('Evenimente') + (cards || `<div class="card"><p class="m">${S.tab === 'mine' ? 'Nu ești înscris la niciun eveniment.' : 'Momentan nu sunt evenimente.'}</p></div>`) +
+  return pageTop('Evenimente') + notes + (cards || `<div class="card"><p class="m">${S.tab === 'mine' ? 'Nu ești înscris la niciun eveniment.' : 'Momentan nu sunt evenimente.'}</p></div>`) +
     `<nav class="nav"><button data-a="tab" data-t="all" class="${S.tab === 'all' ? 'on' : ''}">Evenimente</button><button data-a="tab" data-t="mine" class="${S.tab === 'mine' ? 'on' : ''}">Evenimentele mele</button></nav>`;
 }
 
@@ -134,12 +138,13 @@ function detailView() {
   const conf = S.roster.filter(r => r.status === 'confirmed'), wait = S.roster.filter(r => r.status !== 'confirmed');
   const me = S.roster.find(r => r.is_me);
   let act;
-  if (m && m.status === 'offered') act = `<div class="card offer"><b>S-a eliberat un loc</b><p class="m" style="color:var(--ink)">Locul e rezervat pentru tine până la ${fT(m.offer_expires_at)} (${esc(fD(m.offer_expires_at))}). Dacă nu confirmi, trece la următorul din listă.</p></div>
+  if (e.status === 'cancelled') act = `<div class="card offer"><b>Evenimentul a fost anulat</b></div>` + (m ? '<button class="btn o" data-a="leave">Elimină din lista mea</button>' : '');
+  else if (m && m.status === 'offered') act = `<div class="card offer"><b>S-a eliberat un loc</b><p class="m" style="color:var(--ink)">Locul e rezervat pentru tine până la ${fT(m.offer_expires_at)} (${esc(fD(m.offer_expires_at))}). Dacă nu confirmi, trece la următorul din listă.</p></div>
     <button class="btn" data-a="accept">Confirm participarea</button><button class="btn o" data-a="leave">Renunț la loc</button>`;
   else if (m) act = `<div class="card"><b>${m.status === 'confirmed' ? 'Ești înscris ca voluntar' : 'Ești pe lista de așteptare' + (me ? ', poziția ' + me.position : '')}</b></div><button class="btn o" data-a="leave">Anulează înscrierea</button>`;
   else act = `<button class="btn" data-a="join">${free > 0 && e.waitlist_count === 0 ? 'Mă înscriu ca voluntar' : 'Intru pe lista de așteptare'}</button>`;
   return `<button class="back" data-a="back">‹ Înapoi</button>
-  ${e.poster_url ? `<img class="poster" src="${esc(e.poster_url)}" alt="Afiș ${esc(e.title)}">` : ''}
+  ${e.poster_url ? `<a href="${esc(e.poster_url)}" target="_blank" rel="noopener"><img class="poster" src="${esc(e.poster_url)}" alt="Afiș ${esc(e.title)}"></a><p class="m" style="margin:4px 20px 0">Atinge afișul pentru a-l deschide mare.</p>` : ''}
   <div class="top"><h1>${esc(e.title)}</h1></div>
   <div class="card"><div class="r"><span>Data</span><span>${esc(fD(e.starts_at))}</span></div>
   <div class="r"><span>Eveniment</span><span>${fT(e.starts_at)}–${fT(e.ends_at)}</span></div>
@@ -167,6 +172,7 @@ document.addEventListener('click', async ev => {
   else if (a === 'out') { await db.auth.signOut(); }
   else if (a === 'tab') { S.tab = el.dataset.t; render(); }
   else if (a === 'open') { S.view = 'detail'; S.id = el.dataset.id; S.roster = []; render(); load(); }
+  else if (a === 'seen') { await db.rpc('mark_notifications_read'); load(); }
   else if (a === 'back') { S.view = 'list'; render(); }
   else if (a === 'join') await run('join_event', { p_event: S.id });
   else if (a === 'accept') await run('accept_offer', { p_event: S.id });
@@ -196,7 +202,8 @@ db.auth.onAuthStateChange((_e, session) => {
   load();
 });
 db.channel('live').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, later)
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, later).subscribe();
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, later)
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, later).subscribe();
 </script>
 </body>
 </html>

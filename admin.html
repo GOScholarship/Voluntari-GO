@@ -29,6 +29,7 @@ textarea{min-height:90px;padding-top:10px}
 a{color:var(--mag)}
 .back{background:none;border:0;color:var(--mag);font:600 15px system-ui,-apple-system,sans-serif;padding:14px 16px 0;min-height:44px;cursor:pointer}
 .offer{background:var(--tint);border-color:#F2C19B}
+.x{background:#FBE9EC;border-color:#E3B4BE}
 #toast{position:fixed;left:16px;right:16px;bottom:16px;background:var(--ink);color:#fff;padding:12px 14px;border-radius:12px;display:none;font-size:14px;z-index:9}
 </style>
 </head>
@@ -68,7 +69,7 @@ function render() {
 function listView() {
   const cards = S.events.map(e => {
     const past = new Date(e.ends_at) < new Date();
-    return `<div class="card go" data-a="open" data-id="${e.id}"><b>${esc(e.title)}</b>
+    return `<div class="card go${e.status === 'cancelled' ? ' x' : ''}" data-a="open" data-id="${e.id}"><b>${esc(e.title)}</b>
     <p class="m">${esc(fD(e.starts_at))} · ${fT(e.starts_at)}–${fT(e.ends_at)} · ${esc(e.location)}</p>
     <span class="tag">${e.confirmed_count + e.offered_count}/${e.capacity} locuri</span>${e.waitlist_count ? `<span class="tag">${e.waitlist_count} în așteptare</span>` : ''}
     ${e.status === 'cancelled' ? '<span class="tag g">Anulat</span>' : past ? '<span class="tag g">Încheiat</span>' : ''}</div>`;
@@ -97,7 +98,7 @@ function formView() {
   ${field('cp', 'Telefon contact', e.contact_phone, 'tel')}
   ${field('mp', 'Punct de întâlnire', e.meeting_point)}
   ${field('mt', 'Ora de întâlnire (opțional)', loc(e.meet_at), 'datetime-local')}
-  <label for="po">Afiș (opțional, imagine)</label><input id="po" type="file" accept="image/*">
+  <label for="po">Afiș (opțional, imagine; se micșorează automat)</label><input id="po" type="file" accept="image/*">
   ${e.poster_url ? `<p class="m" style="margin:-6px 0 8px">Are deja un afiș. Alege o imagine nouă doar dacă vrei să-l înlocuiești.</p>` : ''}</div>
   <button class="btn">${e.id ? 'Salvează modificările' : 'Publică evenimentul'}</button></form>`;
 }
@@ -113,7 +114,7 @@ function eventView() {
   const off = by('offered').map(r => `<div class="r"><span>${esc(r.full_name)}<br><span class="m">până la ${fT(r.offer_expires_at)}</span></span><button class="sm" data-a="skip" data-u="${r.user_id}">Treci peste</button></div>`).join('');
   return `<button class="back" data-a="home">‹ Toate evenimentele</button>
   <div class="top"><h1>${esc(e.title)}</h1></div>
-  <div class="card"><p class="m" style="margin:0">${esc(fD(e.starts_at))} · ${fT(e.starts_at)}–${fT(e.ends_at)} · ${esc(e.location)}</p>
+  <div class="card${e.status === 'cancelled' ? ' x' : ''}"><p class="m" style="margin:0">${esc(fD(e.starts_at))} · ${fT(e.starts_at)}–${fT(e.ends_at)} · ${esc(e.location)}</p>
   <span class="tag">${e.confirmed_count + e.offered_count}/${e.capacity} locuri</span>${e.status === 'cancelled' ? '<span class="tag g">Anulat</span>' : ''}</div>
   <button class="btn" data-a="edit">Editează evenimentul</button>
   <button class="btn o" data-a="cancel">${e.status === 'cancelled' ? 'Reactivează evenimentul' : 'Anulează evenimentul'}</button>
@@ -124,6 +125,13 @@ function eventView() {
   <div class="s">Listă de așteptare (${by('waitlist').length})</div><div class="card">${rowsOf('waitlist', rm) || '<p class="m">Nimeni în așteptare.</p>'}</div>
   <div class="s">Adaugă manual un voluntar</div><div class="card"><select id="add">${opts}</select><button class="sm" data-a="add">Adaugă ca voluntar</button></div>
   <button class="btn o" data-a="csv">Descarcă lista (Excel)</button>`;
+}
+
+async function shrink(f) {
+  const im = await createImageBitmap(f), k = Math.min(1, 1600 / Math.max(im.width, im.height));
+  const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
 }
 
 async function rpc(fn, args) {
@@ -149,7 +157,7 @@ document.addEventListener('click', async x => {
   else if (a === 'edit') { S.edit = ev(); S.view = 'form'; render(); }
   else if (a === 'cancel') {
     const e = ev(), to = e.status === 'cancelled' ? 'active' : 'cancelled';
-    if (to === 'active' || confirm('Anulezi evenimentul? Sportivii nu îl vor mai vedea în listă.')) {
+    if (to === 'active' || confirm('Anulezi evenimentul? Cei înscriși vor primi o notificare în aplicație.')) {
       const { error } = await db.from('events').update({ status: to }).eq('id', e.id); if (error) toast(error.message); load();
     }
   }
@@ -170,9 +178,9 @@ document.addEventListener('submit', async x => {
     capacity: parseInt(g('cap'), 10), contact_name: g('cn') || null, contact_phone: g('cp') || null, meeting_point: g('mp') || null, meet_at: iso('mt') };
   const file = document.getElementById('po').files[0];
   if (file) {
-    if (file.size > 3e6) return toast('Imaginea e prea mare (maximum 3 MB).');
-    const path = Date.now() + '-' + file.name.replace(/[^\w.\-]+/g, '_');
-    const up = await db.storage.from('posters').upload(path, file);
+    let blob; try { blob = await shrink(file); } catch (_) { return toast('Imaginea nu a putut fi citită.'); }
+    const path = Date.now() + '.jpg';
+    const up = await db.storage.from('posters').upload(path, blob, { contentType: 'image/jpeg' });
     if (up.error) return toast('Afișul nu s-a încărcat: ' + up.error.message);
     p.poster_url = db.storage.from('posters').getPublicUrl(path).data.publicUrl;
   }
