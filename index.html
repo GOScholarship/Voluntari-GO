@@ -66,7 +66,7 @@ async function load() {
   const [ev, su, me] = await Promise.all([
     db.from('events').select('*').eq('status', 'active').gt('ends_at', new Date().toISOString()).order('starts_at'),
     db.from('signups').select('event_id,status,offer_expires_at'),
-    S.me ? { data: S.me } : db.from('profiles').select('first_name,last_name').eq('id', S.session.user.id).maybeSingle()
+    S.me ? { data: S.me } : db.from('profiles').select('first_name,last_name,is_admin').eq('id', S.session.user.id).maybeSingle()
   ]);
   S.events = ev.data || [];
   S.mine = Object.fromEntries((su.data || []).map(r => [r.event_id, r]));
@@ -102,7 +102,7 @@ function authView() {
 }
 
 function pageTop(t) {
-  return `<div class="top"><h1>${t}</h1><button data-a="out">Ieși${S.me ? ' (' + esc(S.me.first_name) + ')' : ''}</button></div>`;
+  return `<div class="top"><h1>${t}</h1><span>${S.me && S.me.is_admin ? '<a href="admin.html" style="font-size:14px;font-weight:600;margin-right:14px">Admin</a>' : ''}<button data-a="out">Ieși${S.me ? ' (' + esc(S.me.first_name) + ')' : ''}</button></span></div>`;
 }
 
 function listView() {
