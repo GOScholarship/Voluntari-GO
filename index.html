@@ -101,7 +101,7 @@ function authView() {
   <p class="m" style="margin:6px 20px"><a href="#" data-a="mode">${reg ? 'Ai deja cont? Intră' : 'Nu ai cont? Creează unul'}</a></p>`;
 }
 
-function top(t) {
+function pageTop(t) {
   return `<div class="top"><h1>${t}</h1><button data-a="out">Ieși${S.me ? ' (' + esc(S.me.first_name) + ')' : ''}</button></div>`;
 }
 
@@ -116,7 +116,7 @@ function listView() {
     <div class="bar"><i style="width:${Math.min(100, taken / e.capacity * 100)}%"></i></div>
     <p class="m" style="margin:0">${taken} din ${e.capacity} locuri ocupate</p>${tag}</div>`;
   }).join('');
-  return top('Evenimente') + (cards || `<div class="card"><p class="m">${S.tab === 'mine' ? 'Nu ești înscris la niciun eveniment.' : 'Momentan nu sunt evenimente.'}</p></div>`) +
+  return pageTop('Evenimente') + (cards || `<div class="card"><p class="m">${S.tab === 'mine' ? 'Nu ești înscris la niciun eveniment.' : 'Momentan nu sunt evenimente.'}</p></div>`) +
     `<nav class="nav"><button data-a="tab" data-t="all" class="${S.tab === 'all' ? 'on' : ''}">Evenimente</button><button data-a="tab" data-t="mine" class="${S.tab === 'mine' ? 'on' : ''}">Evenimentele mele</button></nav>`;
 }
 
