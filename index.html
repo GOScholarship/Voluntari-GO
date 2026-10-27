@@ -191,7 +191,7 @@ function listView() {
   </div>`;
   
   if (S.loading) {
-    return pageTop('Evenimente') + notes + searchBox + '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>' +
+    return pageTop('Evenimente') + searchBox + '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>' +
       `<nav class="nav"><button data-a="tab" data-t="all" class="${S.tab === 'all' ? 'on' : ''}">Evenimente</button><button data-a="tab" data-t="mine" class="${S.tab === 'mine' ? 'on' : ''}">Evenimentele mele</button></nav>`;
   }
 
