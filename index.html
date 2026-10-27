@@ -90,7 +90,6 @@ a{color:var(--mag)}
 <body>
 <div class="stripe"></div>
 <main id="app"></main>
-<div id="toast" role="status"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <script>
 const db = supabase.createClient('https://sdhhzptvbkmeazrqkncw.supabase.co', 'sb_publishable_adna1O2TC3b99dIjxlU9Rw_SLvo8GYR');
@@ -102,9 +101,7 @@ const fD = d => new Intl.DateTimeFormat('ro-RO', { weekday: 'long', day: 'numeri
 const fT = d => new Intl.DateTimeFormat('ro-RO', { hour: '2-digit', minute: '2-digit', timeZone: TZ }).format(new Date(d));
 
 function toast(m) {
-  const t = document.getElementById('toast');
-  t.textContent = m; t.style.display = 'block';
-  clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 4500);
+  console.log('Toast:', m);
 }
 
 async function load() {
