@@ -71,6 +71,8 @@ a{color:var(--mag)}
 .nav button.on{color:var(--mag)}
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 99; padding: 16px; backdrop-filter: blur(4px); }
 .modal-card { background: #fff; width: 100%; max-width: 360px; border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; }
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+.skeleton { background: #E3E8E1; border-radius: 16px; height: 110px; margin: 0 16px 12px; animation: pulse 1.5s infinite ease-in-out; }
 #toast{position:fixed;left:16px;right:16px;bottom:70px;background:var(--ink);color:#fff;padding:12px 14px;border-radius:12px;display:none;font-size:14px;z-index:9}
 .chk{display:flex;gap:8px;align-items:flex-start;font-weight:400;margin:0 0 14px;font-size:14px}
 .chk input{margin-top:3px;width:20px;height:20px}
@@ -83,7 +85,7 @@ a{color:var(--mag)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <script>
 const db = supabase.createClient('https://sdhhzptvbkmeazrqkncw.supabase.co', 'sb_publishable_adna1O2TC3b99dIjxlU9Rw_SLvo8GYR');
-const S = { cool: 0, last: null, notes: [], session: null, me: null, events: [], mine: {}, view: 'list', tab: 'all', q: '', modal: null, id: null, roster: [], mode: 'register', step: 'form', email: '' };
+const S = { cool: 0, last: null, notes: [], session: null, me: null, events: [], mine: {}, view: 'list', tab: 'all', q: '', modal: null, loading: true, id: null, roster: [], mode: 'register', step: 'form', email: '' };
 const $ = document.getElementById('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const TZ = 'Europe/Bucharest';
@@ -98,6 +100,8 @@ function toast(m) {
 
 async function load() {
   if (!S.session) return render();
+  S.loading = true;
+  render();
   await db.rpc('refresh_offers');
   const [ev, su, me, nt] = await Promise.all([
     db.from('events').select('*').gt('ends_at', new Date().toISOString()).order('starts_at'),
@@ -108,7 +112,14 @@ async function load() {
   S.events = ev.data || [];
   S.mine = Object.fromEntries((su.data || []).map(r => [r.event_id, r]));
   S.me = me.data || S.me;
-  S.notes = nt.data || [];
+  
+  const newNotes = nt.data || [];
+  if (newNotes.length > S.notes.length && S.notes.length >= 0) {
+    toast("🔔 Anunț nou: " + newNotes[0].message);
+  }
+  S.notes = newNotes;
+  S.loading = false;
+
   if (S.view === 'detail') {
     const r = await db.rpc('event_roster', { p_event: S.id });
     S.roster = r.data || [];
@@ -162,33 +173,37 @@ function pageTop(t) {
 }
 
 function listView() {
-    let vis = S.events.filter(e => e.status === 'active' || S.mine[e.id]);
-    if (S.tab === 'mine') vis = vis.filter(e => S.mine[e.id]);
-    
-    if (S.q) {
-      const query = S.q.toLowerCase();
-      vis = vis.filter(e => (e.title && e.title.toLowerCase().includes(query)) || (e.location && e.location.toLowerCase().includes(query)));
-    }
-
-    const notes = S.notes.length ? S.notes.map(n => `<div class="card offer"><p style="margin:0">${esc(n.message)}</p></div>`).join('') + '<button class="btn o" data-a="seen">Am văzut</button>' : '';
-    
-    const searchBox = `<div style="margin: 0 16px 12px;">
-      <input type="text" id="search-events" placeholder="🔍 Caută eveniment sau locație..." value="${esc(S.q)}" style="margin:0; background:#fff;">
-    </div>`;
-
-    const cards = vis.map(e => {
-      const taken = e.confirmed_count + e.offered_count, m = S.mine[e.id];
-      const tag = e.status === 'cancelled' ? '<span class="tag g">Anulat</span>' : m ? (m.status === 'confirmed' ? '<span class="tag">Ești înscris</span>' : m.status === 'offered' ? '<span class="tag">Ai un loc rezervat: confirmă</span>' : '<span class="tag">Ești pe lista de așteptare</span>')
-        : taken >= e.capacity ? `<span class="tag g">Complet · ${e.waitlist_count} în așteptare</span>` : '';
-      return `<div class="card go${e.status === 'cancelled' ? ' x' : ''}" data-a="open" data-id="${e.id}"><b style="font-size:17px">${esc(e.title)}</b>
-      <p class="m">${esc(fD(e.starts_at))} · ${fT(e.starts_at)}–${fT(e.ends_at)} · ${esc(e.location)}</p>
-      <div class="bar"><i style="width:${Math.min(100, taken / e.capacity * 100)}%"></i></div>
-      <p class="m" style="margin:0">${taken} din ${e.capacity} locuri ocupate</p>${tag}</div>`;
-    }).join('');
-
-    return pageTop('Evenimente') + notes + searchBox + (cards || `<div class="card"><p class="m">${S.q ? 'Nu am găsit niciun eveniment pentru căutarea ta.' : S.tab === 'mine' ? 'Nu ești înscris la niciun eveniment.' : 'Momentan nu sunt evenimente.'}</p></div>`) +
+  const searchBox = `<div style="margin: 0 16px 12px;">
+    <input type="text" id="search-events" placeholder="🔍 Caută eveniment sau locație..." value="${esc(S.q)}" style="margin:0; background:#fff;">
+  </div>`;
+  const notes = S.notes.length ? S.notes.map(n => `<div class="card offer"><p style="margin:0">${esc(n.message)}</p></div>`).join('') + '<button class="btn o" data-a="seen">Am văzut</button>' : '';
+  
+  if (S.loading) {
+    return pageTop('Evenimente') + notes + searchBox + '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>' +
       `<nav class="nav"><button data-a="tab" data-t="all" class="${S.tab === 'all' ? 'on' : ''}">Evenimente</button><button data-a="tab" data-t="mine" class="${S.tab === 'mine' ? 'on' : ''}">Evenimentele mele</button></nav>`;
   }
+
+  let vis = S.events.filter(e => e.status === 'active' || S.mine[e.id]);
+  if (S.tab === 'mine') vis = vis.filter(e => S.mine[e.id]);
+  
+  if (S.q) {
+    const query = S.q.toLowerCase();
+    vis = vis.filter(e => (e.title && e.title.toLowerCase().includes(query)) || (e.location && e.location.toLowerCase().includes(query)));
+  }
+
+  const cards = vis.map(e => {
+    const taken = e.confirmed_count + e.offered_count, m = S.mine[e.id];
+    const tag = e.status === 'cancelled' ? '<span class="tag g">Anulat</span>' : m ? (m.status === 'confirmed' ? '<span class="tag">Ești înscris</span>' : m.status === 'offered' ? '<span class="tag">Ai un loc rezervat: confirmă</span>' : '<span class="tag">Ești pe lista de așteptare</span>')
+      : taken >= e.capacity ? `<span class="tag g">Complet · ${e.waitlist_count} în așteptare</span>` : '';
+    return `<div class="card go${e.status === 'cancelled' ? ' x' : ''}" data-a="open" data-id="${e.id}"><b style="font-size:17px">${esc(e.title)}</b>
+    <p class="m">${esc(fD(e.starts_at))} · ${fT(e.starts_at)}–${fT(e.ends_at)} · ${esc(e.location)}</p>
+    <div class="bar"><i style="width:${Math.min(100, taken / e.capacity * 100)}%"></i></div>
+    <p class="m" style="margin:0">${taken} din ${e.capacity} locuri ocupate</p>${tag}</div>`;
+  }).join('');
+
+  return pageTop('Evenimente') + notes + searchBox + (cards || `<div class="card"><p class="m">${S.q ? 'Nu am găsit niciun eveniment pentru căutarea ta.' : S.tab === 'mine' ? 'Nu ești înscris la niciun eveniment.' : 'Momentan nu sunt evenimente.'}</p></div>`) +
+    `<nav class="nav"><button data-a="tab" data-t="all" class="${S.tab === 'all' ? 'on' : ''}">Evenimente</button><button data-a="tab" data-t="mine" class="${S.tab === 'mine' ? 'on' : ''}">Evenimentele mele</button></nav>`;
+}
 
 function phoneLinks(p) {
   const d = String(p || '').replace(/\D/g, '');
