@@ -107,13 +107,13 @@ function toast(m) {
 async function load() {
   if (!S.session) return render();
   S.loading = true;
-  render();
+render();
   await db.rpc('refresh_offers');
   const [ev, su, me, nt] = await Promise.all([
     db.from('events').select('*').gt('ends_at', new Date().toISOString()).order('starts_at'),
     db.from('signups').select('event_id,status,offer_expires_at'),
     S.me ? { data: S.me } : db.from('profiles').select('first_name,last_name,is_admin').eq('id', S.session.user.id).maybeSingle(),
-    db.from('notifications').select('id,message').is('read_at', null).order('created_at', { ascending: false })
+    db.from('notifications').select('id,message,created_at').or(`user_id.eq.${S.session.user.id},user_id.is.null`).order('created_at', { ascending: false })
   ]);
   S.events = ev.data || [];
   S.mine = Object.fromEntries((su.data || []).map(r => [r.event_id, r]));
