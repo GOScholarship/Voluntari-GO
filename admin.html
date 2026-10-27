@@ -202,7 +202,7 @@ function eventView() {
   const now = new Date();
   const past = new Date(e.ends_at) < now;
 
-  // 1. Randarea rândurilor cu voluntari înscriși
+  // 1. Generăm rândurile voluntarilor înscriși
   const rowsHtml = S.rows.length === 0 ? `<p class="m" style="padding:12px;">Niciun voluntar înscris încă.</p>` : S.rows.map(r => {
     let badgeBg = '#eee', badgeColor = '#333', statusLabel = r.status;
     if (r.status === 'confirmed') { badgeBg = '#e6f4ea'; badgeColor = '#137333'; statusLabel = 'Confirmat'; }
@@ -228,14 +228,16 @@ function eventView() {
     </div>`;
   }).join('');
 
-  // 2. Generăm lista de opțiuni pentru selectul de adăugare voluntari
-  const usersOptions = (S.users || []).map(u => {
-    const nameOrEmail = u.full_name || u.email || u.id;
-    const uid = u.id || u.user_id;
-    return `<option value="${uid}">${esc(nameOrEmail)}</option>`;
-  }).join('');
+  // 2. Generăm opțiunile pentru select prin concatenare simplă (fără riscuri de sintaxă)
+  let usersOpts = '<option value="">-- Selectează un voluntar din aplicație --</option>';
+  if (Array.isArray(S.users)) {
+    for (const u of S.users) {
+      const name = u.full_name || u.email || u.id;
+      usersOpts += '<option value="' + u.id + '">' + esc(name) + '</option>';
+    }
+  }
 
-  // 3. Randarea completă a paginii
+  // 3. Randarea paginii
   return `<button class="back" data-a="home">‹ Înapoi la listă</button>
   
   <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
@@ -275,18 +277,16 @@ function eventView() {
     ${rowsHtml}
   </div>
 
-<div style="background:#fff; padding:16px; border-radius:8px; border:1px solid #eee; margin-top:16px;">
+  <div style="background:#fff; padding:16px; border-radius:8px; border:1px solid #eee; margin-top:16px;">
     <h3 style="margin-top:0; font-size:15px;">⚙️ Adaugă voluntar la eveniment</h3>
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <select id="add" style="flex:1; margin:0; min-width:200px; background:#fff;">
-        <option value="">-- Selectează un voluntar din aplicație --</option>
-        ${(S.users || []).map(u => `<option value="${u.id}">${esc(u.full_name || u.email)}</option>`).join('')}
+        ${usersOpts}
       </select>
       <button class="sm" data-a="add" style="background:var(--mag); color:#fff;">Adaugă</button>
     </div>
-  </div>
+  </div>`;
 }
-
 async function shrink(f) {
   const im = await createImageBitmap(f), k = Math.min(1, 1600 / Math.max(im.width, im.height));
   const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
