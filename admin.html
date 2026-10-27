@@ -202,7 +202,7 @@ function eventView() {
   const now = new Date();
   const past = new Date(e.ends_at) < now;
 
-  // Randarea rândurilor cu voluntari
+// Randarea rândurilor cu voluntari
   const rowsHtml = S.rows.length === 0 ? `<p class="m" style="padding:12px;">Niciun voluntar înscris încă.</p>` : S.rows.map(r => {
     let badgeBg = '#eee', badgeColor = '#333', statusLabel = r.status;
     if (r.status === 'confirmed') { badgeBg = '#e6f4ea'; badgeColor = '#137333'; statusLabel = 'Confirmat'; }
@@ -210,14 +210,18 @@ function eventView() {
     else if (r.status === 'waitlist') { badgeBg = '#e8f0fe'; badgeColor = '#1967d2'; statusLabel = 'În așteptare'; }
     else if (r.status === 'cancelled') { badgeBg = '#fce8e6'; badgeColor = '#c5221f'; statusLabel = 'Anulat'; }
 
+    // Extragem numele și emailul cu fallback inteligent
+    const voluntarName = r.profiles?.full_name || r.profiles?.email || 'Voluntar necunoscut';
+    const voluntarEmail = r.profiles?.email || '';
+
     return `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #eee; gap:8px; flex-wrap:wrap;">
       <div>
-        <b>${esc(r.profiles?.full_name || 'Voluntar')}</b><br>
-        <span style="font-size:12px; color:#666;">${esc(r.profiles?.email || '')}</span>
+        <b>${esc(voluntarName)}</b><br>
+        <span style="font-size:12px; color:#666;">${esc(voluntarEmail)}</span>
       </div>
       <div style="display:flex; align-items:center; gap:6px;">
         <span style="background:${badgeBg}; color:${badgeColor}; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600;">${statusLabel}</span>
-        <button class="sm" data-a="pm" data-u="${r.user_id}" data-name="${esc(r.profiles?.full_name || '')}" style="background:#f1f3f4; color:#333;">💬 PM</button>
+        <button class="sm" data-a="pm" data-u="${r.user_id}" data-name="${esc(voluntarName)}" style="background:#f1f3f4; color:#333;">💬 PM</button>
         ${r.status === 'offered' ? `<button class="sm" data-a="skip" data-u="${r.user_id}" style="background:#f9ab00; color:#fff;">Treci peste</button>` : ''}
         ${r.status !== 'cancelled' ? `<button class="sm" data-a="rm" data-u="${r.user_id}" style="background:#d93025; color:#fff;">Scoate</button>` : ''}
       </div>
