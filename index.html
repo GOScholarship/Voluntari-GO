@@ -213,8 +213,8 @@ function listView() {
     <p class="m" style="margin:0">${taken} din ${e.capacity} locuri ocupate</p>${tag}</div>`;
   }).join('');
 
-  return pageTop('Evenimente') + notes + searchBox + (cards || `<div class="card"><p class="m">${S.q ? 'Nu am găsit niciun eveniment pentru căutarea ta.' : S.tab === 'mine' ? 'Nu ești înscris la niciun eveniment.' : 'Momentan nu sunt evenimente.'}</p></div>`) +
-    `<nav class="nav"><button data-a="tab" data-t="all" class="${S.tab === 'all' ? 'on' : ''}">Evenimente</button><button data-a="tab" data-t="mine" class="${S.tab === 'mine' ? 'on' : ''}">Evenimentele mele</button></nav>`;
+  return pageTop('Evenimente') + searchBox + (cards || `<div class="card"><p class="m">${S.q ? 'Nu am găsit niciun eveniment pentru căutarea ta.' : S.tab === 'mine' ? 'Nu ești înscris la niciun eveniment.' : 'Momentan nu sunt evenimente.'}</p></div>`) +
+  `<nav class="nav"><button data-a="tab" data-t="all" class="${S.tab === 'all' ? 'on' : ''}">Evenimente</button><button data-a="tab" data-t="mine" class="${S.tab === 'mine' ? 'on' : ''}">Evenimentele mele</button></nav>`;
 }
 
 function phoneLinks(p) {
