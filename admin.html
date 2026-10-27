@@ -258,17 +258,18 @@ document.addEventListener('input', x => {
 
 document.addEventListener('click', async x => {
   const el = x.target.closest('[data-a]'); if (!el) return;
+  
+  // Dacă butonul este deja dezactivat, oprim execuția (evităm dublu-click)
+  if (el.dataset.loading === 'true') return;
+  
   const a = el.dataset.a, u = el.dataset.u, val = id => document.getElementById(id)?.value;
+
   if (a === 'home') { S.view = 'list'; render(); }
   else if (a === 'new') { S.edit = null; S.view = 'form'; render(); }
   else if (a === 'open') { S.id = el.dataset.id; S.view = 'event'; S.rows = []; render(); load(); }
-else if (a === 'edit') { S.edit = ev(); S.view = 'form'; render(); }
+  else if (a === 'edit') { S.edit = ev(); S.view = 'form'; render(); }
   else if (a === 'cancel') {
     S.modal = 'cancel-event';
-    render();
-  }
-  else if (a === 'filter') { // <-- Aici o pui
-    S.filter = el.dataset.val;
     render();
   }
   else if (a === 'pm') {
@@ -283,7 +284,7 @@ else if (a === 'edit') { S.edit = ev(); S.view = 'form'; render(); }
     const finalMsg = `[Privat - ${eventObj ? eventObj.title : 'Admin'}] ${msg}`;
     
     S.modal = null;
- const targetUser = S.modalData?.id;
+    const targetUser = S.modalData?.id;
     const { error } = await db.from('notifications').insert({ 
       message: finalMsg, 
       user_id: targetUser 
@@ -318,33 +319,56 @@ else if (a === 'edit') { S.edit = ev(); S.view = 'form'; render(); }
     }
     render();
   }
-  else if (a === 'skip') await rpc('admin_skip_offer', { p_event: S.id, p_user: u });
-  else if (a === 'add' && val('add')) await rpc('admin_add_volunteer', { p_event: S.id, p_user: val('add') });
-  else if (a === 'reassign' && val('to')) {
-    const o = S.rows.find(r => r.status === 'offered');
-    if (o) await rpc('admin_reassign_offer', { p_event: S.id, p_from: o.user_id, p_to: val('to') });
-  }
-  else if (a === 'send-event-broadcast') {
-    const msg = val('ev-msg')?.trim();
-    const target = val('ev-target');
-    if (!msg) return toast('Scrie un mesaj mai întâi.');
-    
-    let targetUsers = S.rows;
-    if (target === 'confirmed') targetUsers = S.rows.filter(r => r.status === 'confirmed');
-    if (target === 'waitlist') targetUsers = S.rows.filter(r => r.status === 'waitlist');
-    
-    if (targetUsers.length === 0) return toast('Nu există voluntari în categoria selectată.');
+  else {
+    // Pentru acțiunile rapide (skip, add, reassign, send-event-broadcast), blocăm temporar butonul
+    el.dataset.loading = 'true';
+    const originalOpacity = el.style.opacity;
+    el.style.opacity = '0.5';
+    el.style.pointerEvents = 'none';
 
-    const eventObj = ev();
-    const finalMsg = `[${eventObj.title}] ${msg}`;
-    
-    const { error } = await db.from('notifications').insert({ message: finalMsg });
-    if (error) return toast('Eroare: ' + error.message);
-    
-    document.getElementById('ev-msg').value = '';
-    toast('Notificarea a fost trimisă cu succes!');
+    try {
+      if (a === 'skip') await rpc('admin_skip_offer', { p_event: S.id, p_user: u });
+      else if (a === 'add' && val('add')) await rpc('admin_add_volunteer', { p_event: S.id, p_user: val('add') });
+      else if (a === 'reassign' && val('to')) {
+        const o = S.rows.find(r => r.status === 'offered');
+        if (o) await rpc('admin_reassign_offer', { p_event: S.id, p_from: o.user_id, p_to: val('to') });
+      }
+      else if (a === 'send-event-broadcast') {
+        const msg = val('ev-msg')?.trim();
+        const target = val('ev-target');
+        if (!msg) {
+          toast('Scrie un mesaj mai întâi.');
+        } else {
+          let targetUsers = S.rows;
+          if (target === 'confirmed') targetUsers = S.rows.filter(r => r.status === 'confirmed');
+          if (target === 'waitlist') targetUsers = S.rows.filter(r => r.status === 'waitlist');
+          
+          if (targetUsers.length === 0) {
+            toast('Nu există voluntari în categoria selectată.');
+          } else {
+            const eventObj = ev();
+            const finalMsg = `[${eventObj.title}] ${msg}`;
+            const { error } = await db.from('notifications').insert({ message: finalMsg });
+            if (error) {
+              toast('Eroare: ' + error.message);
+            } else {
+              document.getElementById('ev-msg').value = '';
+              toast('Notificarea a fost trimisă cu succes!');
+            }
+          }
+        }
+      }
+      else if (a === 'filter') {
+        S.filter = el.dataset.val;
+        render();
+      }
+    } finally {
+      // Deblocăm butonul indiferent dacă acțiunea a reușit sau a picat
+      el.dataset.loading = 'false';
+      el.style.opacity = originalOpacity;
+      el.style.pointerEvents = 'auto';
+    }
   }
-  else if (a === 'csv') csv();
 });
 
 document.addEventListener('submit', async x => {
