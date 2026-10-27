@@ -12,7 +12,10 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-app
 #app{max-width:600px;margin:0 auto;padding:0 0 60px}
 h1{font-size:22px;margin:0}
 .top{display:flex;justify-content:space-between;align-items:center;padding:18px 16px 10px;gap:8px}
-.card{margin:0 16px 12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
+.card { margin: 0 16px 12px; background: #fff; border: 1px solid rgba(0,0,0,0.05); border-radius: 16px; padding: 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.card.go:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06); }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 99; padding: 16px; backdrop-filter: blur(4px); }
+.modal-card { background: #fff; width: 100%; max-width: 360px; border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; }
 .go{cursor:pointer}
 .m{font-size:14px;color:var(--mut);margin:4px 0 0}
 .tag{font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--tint);color:#8A3A00;display:inline-block;margin:6px 6px 0 0}
@@ -40,7 +43,7 @@ a{color:var(--mag)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <script>
 const db = supabase.createClient('https://sdhhzptvbkmeazrqkncw.supabase.co', 'sb_publishable_adna1O2TC3b99dIjxlU9Rw_SLvo8GYR');
-const S = { ok: null, events: [], people: [], rows: [], view: 'list', id: null, edit: null };
+const S = { ok: null, events: [], people: [], rows: [], view: 'list', id: null, edit: null, q: '', modal: null, modalData: null };
 const $ = document.getElementById('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const TZ = 'Europe/Bucharest';
@@ -63,19 +66,47 @@ function render() {
   if (S.ok === null) return $.innerHTML = '<div class="top"><h1>Se încarcă…</h1></div>';
   if (S.ok === 'login') return $.innerHTML = '<div class="top"><h1>Admin</h1></div><div class="card"><p class="m">Intră mai întâi în aplicație cu contul tău.</p></div><a class="btn" href="index.html" style="text-decoration:none">Mergi la aplicație</a>';
   if (S.ok === false) return $.innerHTML = '<div class="top"><h1>Admin</h1></div><div class="card"><p class="m">Acest cont nu are drepturi de administrator.</p></div><a class="btn o" href="index.html" style="text-decoration:none">Înapoi</a>';
-  $.innerHTML = S.view === 'form' ? formView() : S.view === 'event' ? eventView() : listView();
+  
+  let html = S.view === 'form' ? formView() : S.view === 'event' ? eventView() : listView();
+
+  if (S.modal) {
+    const isCancelEvent = S.modal === 'cancel-event';
+    html += `<div class="modal-overlay">
+      <div class="modal-card">
+        <h3 style="margin-top:0; font-size:18px;">${isCancelEvent ? 'Anulezi evenimentul?' : 'Scoți persoana de pe eveniment?'}</h3>
+        <p class="m" style="margin-bottom:20px;">${isCancelEvent ? 'Cei înscriși vor primi o notificare în aplicație.' : 'Voluntarul va fi eliminat din lista evenimentului.'}</p>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn o" data-a="close-modal" style="margin:0; flex:1;">Înapoi</button>
+          <button class="btn" data-a="confirm-modal" style="margin:0; flex:1;">Confirm</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  $.innerHTML = html;
 }
 
 function listView() {
-  const cards = S.events.map(e => {
+  let list = S.events;
+  if (S.q) {
+    const query = S.q.toLowerCase();
+    list = list.filter(e => (e.title && e.title.toLowerCase().includes(query)) || (e.location && e.location.toLowerCase().includes(query)));
+  }
+
+  const searchBox = `<div style="margin: 0 16px 12px;">
+    <input type="text" id="search-admin-events" placeholder="🔍 Caută eveniment sau locație..." value="${esc(S.q)}" style="margin:0; background:#fff;">
+  </div>`;
+
+  const cards = list.map(e => {
     const past = new Date(e.ends_at) < new Date();
     return `<div class="card go${e.status === 'cancelled' ? ' x' : ''}" data-a="open" data-id="${e.id}"><b>${esc(e.title)}</b>
     <p class="m">${esc(fD(e.starts_at))} · ${fT(e.starts_at)}–${fT(e.ends_at)} · ${esc(e.location)}</p>
     <span class="tag">${e.confirmed_count + e.offered_count}/${e.capacity} locuri</span>${e.waitlist_count ? `<span class="tag">${e.waitlist_count} în așteptare</span>` : ''}
     ${e.status === 'cancelled' ? '<span class="tag g">Anulat</span>' : past ? '<span class="tag g">Încheiat</span>' : ''}</div>`;
   }).join('');
+
   return `<div class="top"><h1>Admin</h1><a href="index.html">Aplicația</a></div>
-  <button class="btn" data-a="new">Eveniment nou</button>${cards || '<div class="card"><p class="m">Niciun eveniment încă.</p></div>'}`;
+  <button class="btn" data-a="new">Eveniment nou</button>${searchBox}${cards || `<div class="card"><p class="m">${S.q ? 'Niciun eveniment găsit pentru căutarea ta.' : 'Niciun eveniment încă.'}</p></div>`}`;
 }
 
 function field(id, label, val, type = 'text', extra = '') {
@@ -148,6 +179,15 @@ function csv() {
   a.download = (e.title || 'lista').replace(/[^\w\-]+/g, '_') + '.csv'; a.click();
 }
 
+document.addEventListener('input', x => {
+  if (x.target && x.target.id === 'search-admin-events') {
+    S.q = x.target.value;
+    render();
+    const input = document.getElementById('search-admin-events');
+    if (input) { input.focus(); input.selectionStart = input.selectionEnd = input.value.length; }
+  }
+});
+
 document.addEventListener('click', async x => {
   const el = x.target.closest('[data-a]'); if (!el) return;
   const a = el.dataset.a, u = el.dataset.u, val = id => document.getElementById(id)?.value;
@@ -156,13 +196,36 @@ document.addEventListener('click', async x => {
   else if (a === 'open') { S.id = el.dataset.id; S.view = 'event'; S.rows = []; render(); load(); }
   else if (a === 'edit') { S.edit = ev(); S.view = 'form'; render(); }
   else if (a === 'cancel') {
-    const e = ev(), to = e.status === 'cancelled' ? 'active' : 'cancelled';
-    if (to === 'active' || confirm('Anulezi evenimentul? Cei înscriși vor primi o notificare în aplicație.')) {
-      const { error } = await db.from('events').update({ status: to }).eq('id', e.id); if (error) toast(error.message); load();
+    S.modal = 'cancel-event';
+    render();
+  }
+  else if (a === 'rm') {
+    S.modal = 'rm-user';
+    S.modalData = u;
+    render();
+  }
+  else if (a === 'close-modal') {
+    S.modal = null;
+    S.modalData = null;
+    render();
+  }
+  else if (a === 'confirm-modal') {
+    const type = S.modal;
+    const targetUser = S.modalData;
+    S.modal = null;
+    S.modalData = null;
+    
+    if (type === 'cancel-event') {
+      const e = ev(), to = e.status === 'cancelled' ? 'active' : 'cancelled';
+      const { error } = await db.from('events').update({ status: to }).eq('id', e.id); 
+      if (error) toast(error.message); 
+      load();
+    } else if (type === 'rm-user') {
+      await rpc('admin_remove_signup', { p_event: S.id, p_user: targetUser });
     }
+    render();
   }
   else if (a === 'skip') await rpc('admin_skip_offer', { p_event: S.id, p_user: u });
-  else if (a === 'rm' && confirm('Scoți persoana de pe eveniment?')) await rpc('admin_remove_signup', { p_event: S.id, p_user: u });
   else if (a === 'add' && val('add')) await rpc('admin_add_volunteer', { p_event: S.id, p_user: val('add') });
   else if (a === 'reassign' && val('to')) {
     const o = S.rows.find(r => r.status === 'offered');
