@@ -374,7 +374,6 @@ document.addEventListener('click', async x => {
 document.addEventListener('submit', async x => {
   x.preventDefault();
   
-  // Găsim butonul de submit din formular și îl blocăm temporar
   const btn = x.target.querySelector('button.btn');
   const originalText = btn ? btn.textContent : '';
   if (btn) {
@@ -384,6 +383,16 @@ document.addEventListener('submit', async x => {
   }
 
   const g = id => document.getElementById(id).value.trim(), iso = id => g(id) ? new Date(g(id)).toISOString() : null;
+  
+  // ---> AICI ADAUGĂM VALIDAREA <---
+  const startsStr = g('st');
+  const endsStr = g('en');
+  if (startsStr && endsStr && new Date(startsStr) >= new Date(endsStr)) {
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = originalText; }
+    return toast('Eroare: Data de început trebuie să fie înainte de data de sfârșit.');
+  }
+  // ---------------------------------
+
   const p = { title: g('title'), starts_at: iso('st'), ends_at: iso('en'), location: g('loc'), map_url: g('map') || null, description: g('desc') || null,
     capacity: parseInt(g('cap'), 10), contact_name: g('cn') || null, contact_phone: g('cp') || null, meeting_point: g('mp') || null, meet_at: iso('mt') };
   const file = document.getElementById('po').files[0];
