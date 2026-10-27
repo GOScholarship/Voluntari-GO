@@ -420,23 +420,6 @@ function markNotificationsAsRead() {
     const latestTime = new Date(notesList[0].created_at).getTime();
     localStorage.setItem('last_read_notif', latestTime);
   }
- // Actualizează vizibilitatea bulinei roșii
-function updateBadge() {
-  const badge = document.getElementById('notif-badge');
-  if (!badge) return;
-  const lastRead = localStorage.getItem('last_read_notif') || 0;
-  const notesList = S.notes || [];
-  const hasUnread = notesList.some(n => new Date(n.created_at).getTime() > Number(lastRead));
-  badge.style.display = hasUnread ? 'block' : 'none';
-}
-
-// Marchează notificările ca citite (ascunde bulina)
-function markNotificationsAsRead() {
-  const notesList = S.notes || [];
-  if (notesList.length > 0) {
-    const latestTime = new Date(notesList[0].created_at).getTime();
-    localStorage.setItem('last_read_notif', latestTime);
-  }
   updateBadge();
 }
 
@@ -453,7 +436,7 @@ function openNotifDrawer() {
     } else {
       list.innerHTML = notesList.map(n => `
         <div style="padding:12px 16px; border-bottom:1px solid #f0f0f0; font-size:14px;">
-          <div>${esc(n.message)}</div>
+          <div>${typeof esc === 'function' ? esc(n.message) : n.message}</div>
           <div style="font-size:11px; color:#888; margin-top:4px;">${new Date(n.created_at).toLocaleString('ro-RO')}</div>
         </div>
       `).join('');
