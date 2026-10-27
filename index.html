@@ -412,7 +412,6 @@ function updateBadge() {
   const deletedIds = JSON.parse(localStorage.getItem('deleted_notifs') || '[]');
   const notesList = (S.notes || []).filter(n => !deletedIds.includes(n.id));
   
-  // Dacă există cel puțin o notificare a cărei dată este mai mare decât lastReadTime, aprindem bulina
   const hasUnread = notesList.some(n => new Date(n.created_at).getTime() > lastReadTime);
   badge.style.display = hasUnread ? 'block' : 'none';
 }
@@ -424,8 +423,11 @@ function clearAllNotifications() {
   const allIds = (S.notes || []).map(n => n.id);
   localStorage.setItem('deleted_notifs', JSON.stringify(allIds));
   
-  // Setăm timpul citit la valoarea actuală și ascundem bulina
-  localStorage.setItem('last_read_notif', Date.now());
+  if (S.notes && S.notes.length > 0) {
+    localStorage.setItem('last_read_notif', new Date(S.notes[0].created_at).getTime());
+  } else {
+    localStorage.setItem('last_read_notif', Date.now());
+  }
   updateBadge();
   openNotifDrawer();
 }
@@ -478,11 +480,11 @@ function openNotifDrawer() {
   if (drawer) drawer.classList.add('open');
   if (overlay) overlay.classList.add('open');
 
-  // Când utilizatorul deschide sertarul, marcat ca citit setând `last_read_notif` 
-  // la ora celei mai recente notificări din listă (sau la ora curentă dacă lista e goală)
+  // La deschidere, setăm ultima citire la cea mai recentă notificare
+  const deletedIds = JSON.parse(localStorage.getItem('deleted_notifs') || '[]');
+  const notesList = (S.notes || []).filter(n => !deletedIds.includes(n.id));
   if (notesList.length > 0) {
-    const latestNotificationTime = new Date(notesList[0].created_at).getTime();
-    localStorage.setItem('last_read_notif', latestNotificationTime);
+    localStorage.setItem('last_read_notif', new Date(notesList[0].created_at).getTime());
   } else {
     localStorage.setItem('last_read_notif', Date.now());
   }
@@ -506,6 +508,9 @@ document.addEventListener('click', ev => {
     closeNotifDrawer();
   }
 });
+
+// Verificăm starea bulinei imediat ce se încarcă scriptul
+setTimeout(updateBadge, 200);
 </script>
 <div class="notif-overlay" id="notif-overlay"></div>
 <aside class="notif-drawer" id="notif-drawer">
