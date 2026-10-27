@@ -417,11 +417,8 @@ function updateBadge() {
     return;
   }
 
-  // Verificăm ID-ul ultimei notificări citite salvate în localStorage
   const lastReadId = localStorage.getItem('last_read_notif_id');
-  const latestNoteId = validNotes[0].id; // Presupunând că prima e cea mai nouă
-
-  // Dacă nu avem un ID salvat sau dacă cel mai nou ID este diferit de cel citit, avem notificări noi!
+  const latestNoteId = validNotes[0].id;
   const hasUnread = !lastReadId || lastReadId !== latestNoteId;
   
   badge.style.display = hasUnread ? 'block' : 'none';
@@ -442,6 +439,13 @@ function clearAllNotifications() {
   if (badge) badge.style.display = 'none';
   
   openNotifDrawer();
+}
+
+// Funcție ajutătoare pentru a afișa data în siguranță
+function formatNotificationDate(dateString) {
+  if (!dateString) return '';
+  const d = new Date(dateString);
+  return isNaN(d.getTime()) ? '' : d.toLocaleString('ro-RO');
 }
 
 // Funcție care randează lista în sertar și îl deschide
@@ -472,9 +476,12 @@ function openNotifDrawer() {
       `;
 
       html += notesList.map((n, index) => {
-        // Considerăm necitită orice notificare de la început până la lastReadId
         const isUnread = index === 0 && (!lastReadId || lastReadId !== n.id);
         const bgStyle = isUnread ? 'background: #f0f7ff; border-left: 3px solid #3b82f6;' : 'background: #fff;';
+        
+        // Verificăm ce proprietate conține data (created_at, date, inserted_at etc.)
+        const rawDate = n.created_at || n.date || n.inserted_at || n.time;
+        const formattedDate = formatNotificationDate(rawDate);
         
         return `
           <div style="padding:12px 16px; border-bottom:1px solid #f0f0f0; font-size:14px; ${bgStyle}">
@@ -482,7 +489,7 @@ function openNotifDrawer() {
               <div style="${isUnread ? 'font-weight:600; color:#1e3a8a;' : 'color:#333;'}">${typeof esc === 'function' ? esc(n.message) : n.message}</div>
               ${isUnread ? '<span style="width:6px; height:6px; background:#3b82f6; border-radius:50%; display:inline-block; margin-top:6px; flex-shrink:0;"></span>' : ''}
             </div>
-            <div style="font-size:11px; color:#888; margin-top:4px;">${new Date(n.created_at).toLocaleString('ro-RO')}</div>
+            ${formattedDate ? `<div style="font-size:11px; color:#888; margin-top:4px;">${formattedDate}</div>` : ''}
           </div>
         `;
       }).join('');
@@ -494,7 +501,6 @@ function openNotifDrawer() {
   if (drawer) drawer.classList.add('open');
   if (overlay) overlay.classList.add('open');
 
-  // Când utilizatorul deschide sertarul, salvăm ID-ul celei mai recente notificări ca fiind citită
   const notesList = S.notes || [];
   const deletedIds = JSON.parse(localStorage.getItem('deleted_notifs') || '[]');
   const validNotes = notesList.filter(n => !deletedIds.includes(n.id));
@@ -523,7 +529,6 @@ document.addEventListener('click', ev => {
   }
 });
 
-// Verificăm starea bulinei după ce se încarcă datele
 setTimeout(updateBadge, 500);
 </script>
 <div class="notif-overlay" id="notif-overlay"></div>
