@@ -275,16 +275,16 @@ function eventView() {
     ${rowsHtml}
   </div>
 
-  <div style="background:#fff; padding:16px; border-radius:8px; border:1px solid #eee; margin-top:16px;">
+<div style="background:#fff; padding:16px; border-radius:8px; border:1px solid #eee; margin-top:16px;">
     <h3 style="margin-top:0; font-size:15px;">⚙️ Adaugă voluntar la eveniment</h3>
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <select id="add" style="flex:1; margin:0; min-width:200px; background:#fff;">
-        <option value="">-- Selectează un voluntar --</option>
-        ${usersOptions}
+        <option value="">-- Selectează un voluntar din aplicație --</option>
+        ${(S.users || []).map(u => `<option value="${u.id}">${esc(u.full_name || u.email)}</option>`).join('')}
       </select>
       <button class="sm" data-a="add" style="background:var(--mag); color:#fff;">Adaugă</button>
     </div>
-  </div>`;
+  </div>
 }
 
 async function shrink(f) {
