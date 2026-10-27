@@ -370,7 +370,20 @@ document.addEventListener('click', async x => {
     }
   }
 });
-
+document.addEventListener('input', x => {
+  if (x.target && x.target.id === 'search-admin-events') {
+    S.q = x.target.value;
+    
+    const cursorPosition = x.target.selectionStart;
+    render();
+    
+    const freshInput = document.getElementById('search-admin-events');
+    if (freshInput) {
+      freshInput.focus();
+      freshInput.setSelectionRange(cursorPosition, cursorPosition);
+    }
+  }
+});
 document.addEventListener('submit', async x => {
   x.preventDefault();
   
