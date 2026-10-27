@@ -71,16 +71,31 @@ function render() {
 
   if (S.modal) {
     const isCancelEvent = S.modal === 'cancel-event';
-    html += `<div class="modal-overlay">
-      <div class="modal-card">
-        <h3 style="margin-top:0; font-size:18px;">${isCancelEvent ? 'Anulezi evenimentul?' : 'Scoți persoana de pe eveniment?'}</h3>
-        <p class="m" style="margin-bottom:20px;">${isCancelEvent ? 'Cei înscriși vor primi o notificare în aplicație.' : 'Voluntarul va fi eliminat din lista evenimentului.'}</p>
-        <div style="display: flex; gap: 10px;">
-          <button class="btn o" data-a="close-modal" style="margin:0; flex:1;">Înapoi</button>
-          <button class="btn" data-a="confirm-modal" style="margin:0; flex:1;">Confirm</button>
+    const isPM = S.modal === 'pm-user';
+    
+    if (isPM) {
+      html += `<div class="modal-overlay">
+        <div class="modal-card">
+          <h3 style="margin-top:0; font-size:18px;">Mesaj privat către ${esc(S.modalData?.name)}</h3>
+          <textarea id="pm-msg" placeholder="Scrie mesajul tău..." style="margin-bottom:12px; min-height:80px;"></textarea>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn o" data-a="close-modal" style="margin:0; flex:1;">Anulează</button>
+            <button class="btn" data-a="confirm-pm" style="margin:0; flex:1;">Trimite</button>
+          </div>
         </div>
-      </div>
-    </div>`;
+      </div>`;
+    } else {
+      html += `<div class="modal-overlay">
+        <div class="modal-card">
+          <h3 style="margin-top:0; font-size:18px;">${isCancelEvent ? 'Anulezi evenimentul?' : 'Scoți persoana de pe eveniment?'}</h3>
+          <p class="m" style="margin-bottom:20px;">${isCancelEvent ? 'Cei înscriși vor primi o notificare în aplicație.' : 'Voluntarul va fi eliminat din lista evenimentului.'}</p>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn o" data-a="close-modal" style="margin:0; flex:1;">Înapoi</button>
+            <button class="btn" data-a="confirm-modal" style="margin:0; flex:1;">Confirm</button>
+          </div>
+        </div>
+      </div>`;
+    }
   }
 
   $.innerHTML = html;
@@ -140,7 +155,7 @@ function eventView() {
   const by = s => S.rows.filter(r => r.status === s);
   const taken = new Set(S.rows.filter(r => r.status === 'confirmed').map(r => r.user_id));
   const opts = S.people.filter(p => !taken.has(p.id)).map(p => `<option value="${p.id}">${esc(p.first_name + ' ' + p.last_name)} (${esc(p.email)})</option>`).join('');
-  const rowsOf = (s, act) => by(s).map(r => `<div class="r"><span>${esc(r.full_name)}<br><span class="m">${esc(r.email)}${s === 'offered' ? ' · până la ' + fT(r.offer_expires_at) : ''}</span></span>${act(r)}</div>`).join('');
+  const rowsOf = (s, act) => by(s).map(r => `<div class="r"><span>${esc(r.full_name)}<br><span class="m">${esc(r.email)}${s === 'offered' ? ' · până la ' + fT(r.offer_expires_at) : ''}</span></span><div style="display:flex;gap:4px;"><button class="sm" data-a="pm" data-u="${r.user_id}" data-name="${esc(r.full_name)}">💬</button>${act(r)}</div></div>`).join('');
   const rm = r => `<button class="sm" data-a="rm" data-u="${r.user_id}">Scoate</button>`;
   const off = by('offered').map(r => `<div class="r"><span>${esc(r.full_name)}<br><span class="m">până la ${fT(r.offer_expires_at)}</span></span><button class="sm" data-a="skip" data-u="${r.user_id}">Treci peste</button></div>`).join('');
   
@@ -213,6 +228,23 @@ document.addEventListener('click', async x => {
   else if (a === 'edit') { S.edit = ev(); S.view = 'form'; render(); }
   else if (a === 'cancel') {
     S.modal = 'cancel-event';
+    render();
+  }
+  else if (a === 'pm') {
+    S.modal = 'pm-user';
+    S.modalData = { id: u, name: el.dataset.name };
+    render();
+  }
+  else if (a === 'confirm-pm') {
+    const msg = val('pm-msg')?.trim();
+    if (!msg) return toast('Scrie un mesaj mai întâi.');
+    const eventObj = ev();
+    const finalMsg = `[Privat - ${eventObj ? eventObj.title : 'Admin'}] ${msg}`;
+    
+    S.modal = null;
+    const { error } = await db.from('notifications').insert({ message: finalMsg });
+    if (error) return toast('Eroare: ' + error.message);
+    toast('Mesaj privat trimis!');
     render();
   }
   else if (a === 'rm') {
