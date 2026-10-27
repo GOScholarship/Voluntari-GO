@@ -216,8 +216,13 @@ document.addEventListener('submit', async ev => {
     S.last = [email, reg, meta]; S.cool = Date.now() + 60000; S.email = email; S.step = 'code'; render();
   } else if (f === 'code') {
     busy = true; btn.disabled = true; btn.textContent = 'Se verifică…';
-    const { error } = await db.auth.verifyOtp({ email: S.email, token: v('c'), type: 'email' }); busy = false;
-    if (error) { btn.disabled = false; btn.textContent = 'Intră'; toast('Cod incorect sau expirat.'); }
+    let error;
+    for (const type of ['email', 'signup', 'magiclink']) {
+      ({ error } = await db.auth.verifyOtp({ email: S.email, token: v('c').replace(/\s+/g, ''), type }));
+      if (!error) break;
+    }
+    busy = false;
+    if (error) { btn.disabled = false; btn.textContent = 'Intră'; toast('Cod incorect sau expirat' + (error.message ? ' (' + error.message + ')' : '') + '. Folosește codul din cel mai recent email.'); }
   }
 });
 
