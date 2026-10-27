@@ -336,9 +336,14 @@ db.auth.onAuthStateChange((_e, session) => {
   load();
 });
 db.channel('live').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, later)
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, later)
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, later).subscribe();
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, later).subscribe();
+
 let notifications = [];
+
+db.channel('notif-realtime').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, payload => {
+  notifications.unshift(payload.new);
+  renderNotifications();
+}).subscribe();
 
 async function loadNotifications() {
   const { data } = await db.from('notifications').select('*').order('created_at', { ascending: false }).limit(20);
