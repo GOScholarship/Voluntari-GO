@@ -202,9 +202,8 @@ function eventView() {
   const now = new Date();
   const past = new Date(e.ends_at) < now;
 
-  // Randarea rândurilor cu voluntari/participanți
+  // Randarea rândurilor cu voluntari
   const rowsHtml = S.rows.length === 0 ? `<p class="m" style="padding:12px;">Niciun voluntar înscris încă.</p>` : S.rows.map(r => {
-    // Culori diferite pentru statusuri
     let badgeBg = '#eee', badgeColor = '#333', statusLabel = r.status;
     if (r.status === 'confirmed') { badgeBg = '#e6f4ea'; badgeColor = '#137333'; statusLabel = 'Confirmat'; }
     else if (r.status === 'offered') { badgeBg = '#fef7e0'; badgeColor = '#b06000'; statusLabel = 'Ofertat'; }
@@ -213,8 +212,8 @@ function eventView() {
 
     return `<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #eee; gap:8px; flex-wrap:wrap;">
       <div>
-        <b>${esc(r.profiles?.full_name || 'Utilizator')}</b><br>
-        <span style="font-size:12px; color:#666;">${esc(r.profiles?.email || '')} · ${esc(r.profiles?.phone || 'Fără telefon')}</span>
+        <b>${esc(r.profiles?.full_name || 'Voluntar')}</b><br>
+        <span style="font-size:12px; color:#666;">${esc(r.profiles?.email || '')}</span>
       </div>
       <div style="display:flex; align-items:center; gap:6px;">
         <span style="background:${badgeBg}; color:${badgeColor}; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600;">${statusLabel}</span>
@@ -240,10 +239,10 @@ function eventView() {
     </div>
   </div>
 
-  <!-- Card detalii & capacitate -->
+  <!-- Card detalii & voluntari necesari -->
   <div class="card" style="margin-bottom:16px;">
-    <p><b>Capacitate:</b> ${e.confirmed_count + e.offered_count} / ${e.capacity} locuri ocupate ${e.waitlist_count ? `(${e.waitlist_count} în așteptare)` : ''}</p>
-    ${e.contact_name ? `<p><b>Contact:</b> ${esc(e.contact_name)} (${esc(e.contact_phone || 'fără tel')})</p>` : ''}
+    <p><b>Voluntari necesari:</b> ${e.confirmed_count + e.offered_count} / ${e.capacity} confirmați ${e.waitlist_count ? `(${e.waitlist_count} în așteptare)` : ''}</p>
+    ${e.contact_name ? `<p><b>Contact organizator:</b> ${esc(e.contact_name)} (${esc(e.contact_phone || 'fără tel')})</p>` : ''}
     ${e.description ? `<p style="margin-top:8px; color:#555;">${esc(e.description)}</p>` : ''}
   </div>
 
@@ -252,7 +251,7 @@ function eventView() {
     <h3 style="margin-top:0; font-size:15px;">📢 Trimite notificare voluntarilor</h3>
     <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
       <select id="ev-target" style="flex:1; min-width:140px; margin:0; background:#fff;">
-        <option value="all">Toți înscrișii</option>
+        <option value="all">Toți voluntarii înscriși</option>
         <option value="confirmed">Doar cei confirmați</option>
         <option value="waitlist">Doar cei din așteptare</option>
       </select>
@@ -262,17 +261,20 @@ function eventView() {
   </div>
 
   <!-- Lista de voluntari -->
-  <h3 style="margin-bottom:8px;">Participanți (${S.rows.length})</h3>
+  <h3 style="margin-bottom:8px;">Voluntari înscriși (${S.rows.length})</h3>
   <div class="card" style="padding:0; overflow:hidden;">
     ${rowsHtml}
   </div>
 
-  <!-- Acțiuni administrative suplimentare (Adăugare / Reasignare) -->
+  <!-- Acțiune adăugare din lista de utilizatori înregistrați -->
   <div style="background:#fff; padding:16px; border-radius:8px; border:1px solid #eee; margin-top:16px;">
-    <h3 style="margin-top:0; font-size:15px;">⚙️ Acțiuni Administrative</h3>
+    <h3 style="margin-top:0; font-size:15px;">⚙️ Adaugă voluntar la eveniment</h3>
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-      <input type="text" id="add" placeholder="ID Utilizator (UUID)" style="flex:1; margin:0; min-width:200px;">
-      <button class="sm" data-a="add" style="background:var(--mag); color:#fff;">Adaugă ca voluntar</button>
+      <select id="add" style="flex:1; margin:0; min-width:200px; background:#fff;">
+        <option value="">-- Selectează un voluntar din aplicație --</option>
+        ${(S.users || []).map(u => `<option value="${u.id}">${esc(u.full_name || u.email)}</option>`).join('')}
+      </select>
+      <button class="sm" data-a="add" style="background:var(--mag); color:#fff;">Adaugă</button>
     </div>
   </div>`;
 }
