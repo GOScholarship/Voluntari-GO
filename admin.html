@@ -197,12 +197,16 @@ function formView() {
 const LBL = { confirmed: 'Voluntar', offered: 'Loc rezervat', waitlist: 'Așteptare' };
 function eventView() {
   const e = ev();
-  if (!e) return `<p>Eveniment negăsit.</p>`;
+  if (!e) return `<button class="back" data-a="home">‹ Înapoi</button>`;
 
   const now = new Date();
   const past = new Date(e.ends_at) < now;
 
-  // 1. Generăm rândurile voluntarilor înscriși
+  // 1. Logica originală de filtrare și generare opțiuni din S.people
+  const taken = new Set(S.rows.filter(r => r.status === 'confirmed').map(r => r.user_id));
+  const opts = (S.people || []).filter(p => !taken.has(p.id)).map(p => `<option value="${p.id}">${esc(p.first_name + ' ' + p.last_name)} (${esc(p.email)})</option>`).join('');
+
+  // 2. Randarea rândurilor cu voluntari înscriși (cu badge-uri și design curat)
   const rowsHtml = S.rows.length === 0 ? `<p class="m" style="padding:12px;">Niciun voluntar înscris încă.</p>` : S.rows.map(r => {
     let badgeBg = '#eee', badgeColor = '#333', statusLabel = r.status;
     if (r.status === 'confirmed') { badgeBg = '#e6f4ea'; badgeColor = '#137333'; statusLabel = 'Confirmat'; }
@@ -228,16 +232,7 @@ function eventView() {
     </div>`;
   }).join('');
 
-  // 2. Generăm opțiunile pentru select prin concatenare simplă (fără riscuri de sintaxă)
-  let usersOpts = '<option value="">-- Selectează un voluntar din aplicație --</option>';
-  if (Array.isArray(S.users)) {
-    for (const u of S.users) {
-      const name = u.full_name || u.email || u.id;
-      usersOpts += '<option value="' + u.id + '">' + esc(name) + '</option>';
-    }
-  }
-
-  // 3. Randarea paginii
+  // 3. Randarea paginii complet funcționale
   return `<button class="back" data-a="home">‹ Înapoi la listă</button>
   
   <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
@@ -281,7 +276,8 @@ function eventView() {
     <h3 style="margin-top:0; font-size:15px;">⚙️ Adaugă voluntar la eveniment</h3>
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <select id="add" style="flex:1; margin:0; min-width:200px; background:#fff;">
-        ${usersOpts}
+        <option value="">-- Selectează un voluntar --</option>
+        ${opts}
       </select>
       <button class="sm" data-a="add" style="background:var(--mag); color:#fff;">Adaugă</button>
     </div>
