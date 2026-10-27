@@ -13,8 +13,19 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-app
 h1{font-size:22px;margin:0}
 .top{display:flex;justify-content:space-between;align-items:center;padding:18px 16px 10px}
 .top button{background:none;border:0;color:var(--mag);font:600 14px system-ui,-apple-system,sans-serif;min-height:44px;cursor:pointer}
-.card{margin:0 16px 12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
-.card.go{cursor:pointer}
+.card {
+  margin: 0 16px 12px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); /* Umbră fină modernă */
+  transition: transform 0.2s ease, box-shadow 0.2s ease; /* Animație fină */
+}
+.card.go:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
+}
 .m{font-size:14px;color:var(--mut);margin:4px 0 0}
 .bar{height:8px;border-radius:4px;background:#E3E8E1;overflow:hidden;margin:10px 0 6px}
 .bar i{display:block;height:100%;background:var(--ora)}
