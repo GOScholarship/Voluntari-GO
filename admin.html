@@ -102,7 +102,7 @@ function render() {
 }
 
 function listView() {
-  let list = S.events;
+  let list = [...S.events]; // Facem o copie ca să putem sorta siguranța
   const now = new Date();
 
   // Filtrare după textul de căutare
@@ -111,13 +111,21 @@ function listView() {
     list = list.filter(e => (e.title && e.title.toLowerCase().includes(query)) || (e.location && e.location.toLowerCase().includes(query)));
   }
 
-  // Filtrare după status (Viitoare / Trecute / Toate)
+  // Filtrare după status (Viitoare / Trecute / Anulate / Toate)
   if (S.filter === 'upcoming') {
     list = list.filter(e => new Date(e.ends_at) >= now && e.status !== 'cancelled');
+    // Pentru viitoare: sortăm de la cel mai apropiat la cel mai îndepărtat (crescător)
+    list.sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
   } else if (S.filter === 'past') {
     list = list.filter(e => new Date(e.ends_at) < now && e.status !== 'cancelled');
+    // Pentru trecute: cele mai recente în vârf (descrescător)
+    list.sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at));
   } else if (S.filter === 'cancelled') {
     list = list.filter(e => e.status === 'cancelled');
+    list.sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at));
+  } else {
+    // Pentru "Toate"
+    list.sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at));
   }
 
   const searchBox = `<div style="margin: 0 16px 12px;">
