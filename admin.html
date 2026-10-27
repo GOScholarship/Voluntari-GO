@@ -202,7 +202,7 @@ function eventView() {
   const now = new Date();
   const past = new Date(e.ends_at) < now;
 
-// Randarea rândurilor cu voluntari (versiune blindată)
+  // 1. Randarea rândurilor cu voluntari înscriși
   const rowsHtml = S.rows.length === 0 ? `<p class="m" style="padding:12px;">Niciun voluntar înscris încă.</p>` : S.rows.map(r => {
     let badgeBg = '#eee', badgeColor = '#333', statusLabel = r.status;
     if (r.status === 'confirmed') { badgeBg = '#e6f4ea'; badgeColor = '#137333'; statusLabel = 'Confirmat'; }
@@ -210,7 +210,6 @@ function eventView() {
     else if (r.status === 'waitlist') { badgeBg = '#e8f0fe'; badgeColor = '#1967d2'; statusLabel = 'În așteptare'; }
     else if (r.status === 'cancelled') { badgeBg = '#fce8e6'; badgeColor = '#c5221f'; statusLabel = 'Anulat'; }
 
-    // Extragere sigură: verificăm obiect, array sau proprietăți directe
     const prof = Array.isArray(r.profiles) ? r.profiles[0] : (r.profiles || {});
     const voluntarName = prof.full_name || r.full_name || prof.email || r.email || 'Voluntar';
     const voluntarEmail = prof.email || r.email || '';
@@ -229,6 +228,14 @@ function eventView() {
     </div>`;
   }).join('');
 
+  // 2. Generăm lista de opțiuni pentru selectul de adăugare voluntari
+  const usersOptions = (S.users || []).map(u => {
+    const nameOrEmail = u.full_name || u.email || u.id;
+    const uid = u.id || u.user_id;
+    return `<option value="${uid}">${esc(nameOrEmail)}</option>`;
+  }).join('');
+
+  // 3. Randarea completă a paginii
   return `<button class="back" data-a="home">‹ Înapoi la listă</button>
   
   <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
@@ -244,14 +251,12 @@ function eventView() {
     </div>
   </div>
 
-  <!-- Card detalii & voluntari necesari -->
   <div class="card" style="margin-bottom:16px;">
     <p><b>Voluntari necesari:</b> ${e.confirmed_count + e.offered_count} / ${e.capacity} confirmați ${e.waitlist_count ? `(${e.waitlist_count} în așteptare)` : ''}</p>
     ${e.contact_name ? `<p><b>Contact organizator:</b> ${esc(e.contact_name)} (${esc(e.contact_phone || 'fără tel')})</p>` : ''}
     ${e.description ? `<p style="margin-top:8px; color:#555;">${esc(e.description)}</p>` : ''}
   </div>
 
-  <!-- Secțiune Broadcast / Notificare către voluntari -->
   <div style="background:#f9f9f9; padding:16px; border-radius:8px; margin-bottom:16px; border:1px solid #eee;">
     <h3 style="margin-top:0; font-size:15px;">📢 Trimite notificare voluntarilor</h3>
     <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
@@ -265,26 +270,22 @@ function eventView() {
     <button class="sm" data-a="send-event-broadcast">Trimite notificarea</button>
   </div>
 
-  <!-- Lista de voluntari -->
   <h3 style="margin-bottom:8px;">Voluntari înscriși (${S.rows.length})</h3>
   <div class="card" style="padding:0; overflow:hidden;">
     ${rowsHtml}
   </div>
 
-<!-- Acțiune adăugare din lista de utilizatori înregistrați -->
   <div style="background:#fff; padding:16px; border-radius:8px; border:1px solid #eee; margin-top:16px;">
     <h3 style="margin-top:0; font-size:15px;">⚙️ Adaugă voluntar la eveniment</h3>
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <select id="add" style="flex:1; margin:0; min-width:200px; background:#fff;">
         <option value="">-- Selectează un voluntar --</option>
-        ${(S.users || []).map(u => {
-          const nameOrEmail = u.full_name || u.email || u.id;
-          return `<option value="${u.id || u.user_id}">${esc(nameOrEmail)}</option>`;
-        }).join('')}
+        ${usersOptions}
       </select>
       <button class="sm" data-a="add" style="background:var(--mag); color:#fff;">Adaugă</button>
     </div>
-  </div>
+  </div>`;
+}
 
 async function shrink(f) {
   const im = await createImageBitmap(f), k = Math.min(1, 1600 / Math.max(im.width, im.height));
