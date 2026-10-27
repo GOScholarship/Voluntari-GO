@@ -43,7 +43,7 @@ a{color:var(--mag)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <script>
 const db = supabase.createClient('https://sdhhzptvbkmeazrqkncw.supabase.co', 'sb_publishable_adna1O2TC3b99dIjxlU9Rw_SLvo8GYR');
-const S = { ok: null, events: [], people: [], rows: [], view: 'list', id: null, edit: null, q: '', modal: null, modalData: null };
+const S = { ok: null, events: [], people: [], rows: [], view: 'list', id: null, edit: null, q: '', filter: 'upcoming', modal: null, modalData: null };
 const $ = document.getElementById('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const TZ = 'Europe/Bucharest';
@@ -103,13 +103,34 @@ function render() {
 
 function listView() {
   let list = S.events;
+  const now = new Date();
+
+  // Filtrare după textul de căutare
   if (S.q) {
     const query = S.q.toLowerCase();
     list = list.filter(e => (e.title && e.title.toLowerCase().includes(query)) || (e.location && e.location.toLowerCase().includes(query)));
   }
 
+  // Filtrare după status (Viitoare / Trecute / Toate)
+  if (S.filter === 'upcoming') {
+    list = list.filter(e => new Date(e.ends_at) >= now && e.status !== 'cancelled');
+  } else if (S.filter === 'past') {
+    list = list.filter(e => new Date(e.ends_at) < now && e.status !== 'cancelled');
+  } else if (S.filter === 'cancelled') {
+    list = list.filter(e => e.status === 'cancelled');
+  }
+
   const searchBox = `<div style="margin: 0 16px 12px;">
     <input type="text" id="search-admin-events" placeholder="🔍 Caută eveniment sau locație..." value="${esc(S.q)}" style="margin:0; background:#fff;">
+  </div>`;
+
+  // Butoanele de filtrare
+  const fBtn = (id, label) => `<button class="sm" data-a="filter" data-val="${id}" style="background:${S.filter === id ? 'var(--mag)' : '#fff'}; color:${S.filter === id ? '#fff' : 'var(--mag)'};">${label}</button>`;
+  const filters = `<div style="display:flex; gap:6px; margin: 0 16px 12px; overflow-x:auto; padding-bottom:4px;">
+    ${fBtn('upcoming', 'Viitoare')}
+    ${fBtn('past', 'Trecute')}
+    ${fBtn('cancelled', 'Anulate')}
+    ${fBtn('all', 'Toate')}
   </div>`;
 
   const cards = list.map(e => {
@@ -121,11 +142,7 @@ function listView() {
   }).join('');
 
   return `<div class="top"><h1>Admin</h1><a href="index.html">Aplicația</a></div>
-  <button class="btn" data-a="new">Eveniment nou</button>${searchBox}${cards || `<div class="card"><p class="m">${S.q ? 'Niciun eveniment găsit pentru căutarea ta.' : 'Niciun eveniment încă.'}</p></div>`}`;
-}
-
-function field(id, label, val, type = 'text', extra = '') {
-  return `<label for="${id}">${label}</label><input id="${id}" type="${type}" value="${esc(val)}" ${extra}>`;
+  <button class="btn" data-a="new">Eveniment nou</button>${searchBox}${filters}${cards || `<div class="card"><p class="m">Niciun eveniment găsit în această categorie.</p></div>`}`;
 }
 
 function formView() {
@@ -234,9 +251,13 @@ document.addEventListener('click', async x => {
   if (a === 'home') { S.view = 'list'; render(); }
   else if (a === 'new') { S.edit = null; S.view = 'form'; render(); }
   else if (a === 'open') { S.id = el.dataset.id; S.view = 'event'; S.rows = []; render(); load(); }
-  else if (a === 'edit') { S.edit = ev(); S.view = 'form'; render(); }
+else if (a === 'edit') { S.edit = ev(); S.view = 'form'; render(); }
   else if (a === 'cancel') {
     S.modal = 'cancel-event';
+    render();
+  }
+  else if (a === 'filter') { // <-- Aici o pui
+    S.filter = el.dataset.val;
     render();
   }
   else if (a === 'pm') {
