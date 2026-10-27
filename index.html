@@ -407,25 +407,24 @@ db.channel('notif-realtime').on('postgres_changes', { event: 'INSERT', schema: '
 function updateBadge() {
   const badge = document.getElementById('notif-badge');
   if (!badge) return;
-  const lastRead = Number(localStorage.getItem('last_read_notif') || 0);
   
-  // Excludem notificările șterse local
+  const lastReadTime = Number(localStorage.getItem('last_read_notif') || 0);
   const deletedIds = JSON.parse(localStorage.getItem('deleted_notifs') || '[]');
   const notesList = (S.notes || []).filter(n => !deletedIds.includes(n.id));
   
-  const hasUnread = notesList.some(n => new Date(n.created_at).getTime() > lastRead);
+  // Dacă există cel puțin o notificare a cărei dată este mai mare decât lastReadTime, aprindem bulina
+  const hasUnread = notesList.some(n => new Date(n.created_at).getTime() > lastReadTime);
   badge.style.display = hasUnread ? 'block' : 'none';
 }
 
-// Șterge toate notificările doar pentru acest utilizator (salvat în localStorage)
+// Șterge toate notificările local
 function clearAllNotifications() {
   if (!confirm('Sigur vrei să ștergi toate notificările?')) return;
   
-  // Salvăm ID-urile tuturor notificărilor curente ca fiind șterse
   const allIds = (S.notes || []).map(n => n.id);
   localStorage.setItem('deleted_notifs', JSON.stringify(allIds));
   
-  // Setăm totul ca citit și actualizăm interfața
+  // Setăm timpul citit la valoarea actuală și ascundem bulina
   localStorage.setItem('last_read_notif', Date.now());
   updateBadge();
   openNotifDrawer();
@@ -436,7 +435,7 @@ function openNotifDrawer() {
   const drawer = document.getElementById('notif-drawer');
   const overlay = document.getElementById('notif-overlay');
   const list = document.getElementById('notif-list');
-  const lastRead = Number(localStorage.getItem('last_read_notif') || 0);
+  const lastReadTime = Number(localStorage.getItem('last_read_notif') || 0);
   
   if (list) {
     const deletedIds = JSON.parse(localStorage.getItem('deleted_notifs') || '[]');
@@ -458,7 +457,7 @@ function openNotifDrawer() {
       `;
 
       html += notesList.map(n => {
-        const isUnread = new Date(n.created_at).getTime() > lastRead;
+        const isUnread = new Date(n.created_at).getTime() > lastReadTime;
         const bgStyle = isUnread ? 'background: #f0f7ff; border-left: 3px solid #3b82f6;' : 'background: #fff;';
         
         return `
@@ -479,8 +478,14 @@ function openNotifDrawer() {
   if (drawer) drawer.classList.add('open');
   if (overlay) overlay.classList.add('open');
 
-  // Marcăm ca citite la deschidere
-  localStorage.setItem('last_read_notif', Date.now());
+  // Când utilizatorul deschide sertarul, marcat ca citit setând `last_read_notif` 
+  // la ora celei mai recente notificări din listă (sau la ora curentă dacă lista e goală)
+  if (notesList.length > 0) {
+    const latestNotificationTime = new Date(notesList[0].created_at).getTime();
+    localStorage.setItem('last_read_notif', latestNotificationTime);
+  } else {
+    localStorage.setItem('last_read_notif', Date.now());
+  }
   updateBadge();
 }
 
