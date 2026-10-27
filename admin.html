@@ -213,9 +213,18 @@ function csv() {
 document.addEventListener('input', x => {
   if (x.target && x.target.id === 'search-admin-events') {
     S.q = x.target.value;
+    
+    // Salvăm poziția cursorului și textul
+    const cursorPosition = x.target.selectionStart;
+    
     render();
+    
+    // Readucem focusul exact în input și punem cursorul unde era
     const input = document.getElementById('search-admin-events');
-    if (input) { input.focus(); input.selectionStart = input.selectionEnd = input.value.length; }
+    if (input) {
+      input.focus();
+      input.setSelectionRange(cursorPosition, cursorPosition);
+    }
   }
 });
 
@@ -242,7 +251,11 @@ document.addEventListener('click', async x => {
     const finalMsg = `[Privat - ${eventObj ? eventObj.title : 'Admin'}] ${msg}`;
     
     S.modal = null;
-    const { error } = await db.from('notifications').insert({ message: finalMsg });
+ const targetUser = S.modalData?.id;
+    const { error } = await db.from('notifications').insert({ 
+      message: finalMsg, 
+      user_id: targetUser 
+    });
     if (error) return toast('Eroare: ' + error.message);
     toast('Mesaj privat trimis!');
     render();
