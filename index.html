@@ -48,7 +48,7 @@ a{color:var(--mag)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <script>
 const db = supabase.createClient('https://sdhhzptvbkmeazrqkncw.supabase.co', 'sb_publishable_adna1O2TC3b99dIjxlU9Rw_SLvo8GYR');
-const S = { notes: [], session: null, me: null, events: [], mine: {}, view: 'list', tab: 'all', id: null, roster: [], mode: 'register', step: 'form', email: '' };
+const S = { cool: 0, last: null, notes: [], session: null, me: null, events: [], mine: {}, view: 'list', tab: 'all', id: null, roster: [], mode: 'register', step: 'form', email: '' };
 const $ = document.getElementById('app');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const TZ = 'Europe/Bucharest';
@@ -82,7 +82,7 @@ async function load() {
 }
 
 function render() {
-  if (!S.session) return $.innerHTML = authView();
+  if (!S.session) { $.innerHTML = authView(); cooldown(); return; }
   $.innerHTML = S.view === 'detail' ? detailView() : listView();
 }
 
@@ -92,6 +92,8 @@ function authView() {
   <div class="card"><p class="m" style="margin:0 0 12px">Am trimis un email la <b>${esc(S.email)}</b>. Apasă pe butonul din email sau scrie aici codul primit.</p>
   <form data-f="code"><label for="c">Cod din email</label><input type="text" id="c" inputmode="numeric" autocomplete="one-time-code">
   <button class="btn" style="margin:0;width:100%">Intră</button></form></div>
+  <button class="btn o" id="rs" data-a="resend" style="margin:0 16px 10px" disabled>Trimite din nou emailul</button>
+  <p class="m" style="margin:0 20px">Dacă ai primit mai multe emailuri, folosește codul din cel mai recent.</p>
   <button class="back" data-a="back-auth">Înapoi</button>`;
   return `<div class="top"><h1>${reg ? 'Creare cont voluntar' : 'Intră în cont'}</h1></div>
   <p class="m" style="margin:0 20px 14px">${reg ? 'Completezi o singură dată. Îți trimitem un email de confirmare, apoi rămâi conectat.' : 'Scrie emailul cu care te-ai înregistrat.'}</p>
@@ -169,6 +171,12 @@ document.addEventListener('click', async ev => {
   const el = ev.target.closest('[data-a]'); if (!el) return;
   const a = el.dataset.a;
   if (a === 'mode') { ev.preventDefault(); S.mode = S.mode === 'register' ? 'login' : 'register'; render(); }
+  else if (a === 'resend') {
+    if (busy || !S.last) return; busy = true; el.disabled = true; el.textContent = 'Se trimite…';
+    const err = await sendCode(...S.last); busy = false;
+    if (err) toast(msgOf(err, true)); else { S.cool = Date.now() + 60000; toast('Am trimis un email nou.'); }
+    cooldown();
+  }
   else if (a === 'back-auth') { S.step = 'form'; render(); }
   else if (a === 'out') { await db.auth.signOut(); }
   else if (a === 'tab') { S.tab = el.dataset.t; render(); }
@@ -180,19 +188,36 @@ document.addEventListener('click', async ev => {
   else if (a === 'leave' && confirm('Sigur vrei să renunți?')) await run('leave_event', { p_event: S.id });
 });
 
+let busy = false;
+const msgOf = (e, reg) => (e.status === 429 || /rate|seconds/i.test(e.message || e.code || '')) ? 'Ai cerut deja un email. Mai așteaptă un minut și încearcă din nou.'
+  : (!reg && /not allowed|signups/i.test(e.message || '')) ? 'Nu există un cont cu acest email. Creează un cont nou.'
+  : 'Nu am putut trimite emailul: ' + (e.message || e.code || 'eroare necunoscută');
+async function sendCode(email, reg, meta) {
+  const { error } = await db.auth.signInWithOtp({ email, options: { shouldCreateUser: reg, data: reg ? meta : undefined, emailRedirectTo: location.origin + location.pathname } });
+  return error;
+}
+function cooldown() {
+  const b = document.getElementById('rs'); if (!b || busy) return;
+  const left = Math.ceil((S.cool - Date.now()) / 1000);
+  b.disabled = left > 0; b.textContent = left > 0 ? `Poți cere un email nou în ${left} s` : 'Trimite din nou emailul';
+}
+setInterval(cooldown, 1000);
+
 document.addEventListener('submit', async ev => {
   ev.preventDefault();
   const f = ev.target.dataset.f, v = id => (document.getElementById(id)?.value || '').trim();
+  const btn = ev.target.querySelector('button');
+  if (busy || btn.disabled) return;
   if (f === 'auth') {
-    const reg = S.mode === 'register', email = v('em').toLowerCase();
-    const { error } = await db.auth.signInWithOtp({ email, options: {
-      shouldCreateUser: reg, data: reg ? { first_name: v('fn'), last_name: v('ln') } : undefined,
-      emailRedirectTo: location.origin + location.pathname } });
-    if (error) return toast(reg ? 'Nu am putut trimite emailul: ' + error.message : 'Nu există un cont cu acest email. Creează un cont nou.');
-    S.email = email; S.step = 'code'; render();
+    busy = true; const txt = btn.textContent; btn.disabled = true; btn.textContent = 'Se trimite emailul…';
+    const reg = S.mode === 'register', email = v('em').toLowerCase(), meta = { first_name: v('fn'), last_name: v('ln') };
+    const err = await sendCode(email, reg, meta); busy = false;
+    if (err) { btn.disabled = false; btn.textContent = txt; return toast(msgOf(err, reg)); }
+    S.last = [email, reg, meta]; S.cool = Date.now() + 60000; S.email = email; S.step = 'code'; render();
   } else if (f === 'code') {
-    const { error } = await db.auth.verifyOtp({ email: S.email, token: v('c'), type: 'email' });
-    if (error) toast('Cod incorect sau expirat.');
+    busy = true; btn.disabled = true; btn.textContent = 'Se verifică…';
+    const { error } = await db.auth.verifyOtp({ email: S.email, token: v('c'), type: 'email' }); busy = false;
+    if (error) { btn.disabled = false; btn.textContent = 'Intră'; toast('Cod incorect sau expirat.'); }
   }
 });
 
