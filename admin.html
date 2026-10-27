@@ -203,7 +203,7 @@ function eventView() {
   const past = new Date(e.ends_at) < now;
 
   // Randarea rândurilor cu voluntari/participanți
-  const rowsHtml = S.rows.length === 0 ? `<p class="m" style="padding:12px;">Niciun participant înscris încă.</p>` : S.rows.map(r => {
+  const rowsHtml = S.rows.length === 0 ? `<p class="m" style="padding:12px;">Niciun voluntar înscris încă.</p>` : S.rows.map(r => {
     // Culori diferite pentru statusuri
     let badgeBg = '#eee', badgeColor = '#333', statusLabel = r.status;
     if (r.status === 'confirmed') { badgeBg = '#e6f4ea'; badgeColor = '#137333'; statusLabel = 'Confirmat'; }
@@ -247,9 +247,9 @@ function eventView() {
     ${e.description ? `<p style="margin-top:8px; color:#555;">${esc(e.description)}</p>` : ''}
   </div>
 
-  <!-- Secțiune Broadcast / Notificare către participanți -->
+  <!-- Secțiune Broadcast / Notificare către voluntari -->
   <div style="background:#f9f9f9; padding:16px; border-radius:8px; margin-bottom:16px; border:1px solid #eee;">
-    <h3 style="margin-top:0; font-size:15px;">📢 Trimite notificare participanților</h3>
+    <h3 style="margin-top:0; font-size:15px;">📢 Trimite notificare voluntarilor</h3>
     <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
       <select id="ev-target" style="flex:1; min-width:140px; margin:0; background:#fff;">
         <option value="all">Toți înscrișii</option>
@@ -261,7 +261,7 @@ function eventView() {
     <button class="sm" data-a="send-event-broadcast">Trimite notificarea</button>
   </div>
 
-  <!-- Lista de participanți -->
+  <!-- Lista de voluntari -->
   <h3 style="margin-bottom:8px;">Participanți (${S.rows.length})</h3>
   <div class="card" style="padding:0; overflow:hidden;">
     ${rowsHtml}
