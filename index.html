@@ -82,7 +82,7 @@ async function load() {
 }
 
 function render() {
-  if (!S.session) { $.innerHTML = authView(); cooldown(); return; }
+  if (!S.session) { $.innerHTML = authView() + '<p class="m" style="text-align:center;margin-top:24px;font-size:12px">Versiune 3</p>'; cooldown(); return; }
   $.innerHTML = S.view === 'detail' ? detailView() : listView();
 }
 
@@ -222,7 +222,7 @@ document.addEventListener('submit', async ev => {
       if (!error) break;
     }
     busy = false;
-    if (error) { btn.disabled = false; btn.textContent = 'Intră'; toast('Cod incorect sau expirat' + (error.message ? ' (' + error.message + ')' : '') + '. Folosește codul din cel mai recent email.'); }
+    if (error) { btn.disabled = false; btn.textContent = 'Intră'; console.warn('verifyOtp', error); const why = (error.message && error.message !== '{}' ? error.message : '') || error.code || error.status || 'fără detalii'; toast('Cod respins (' + why + '). Folosește codul din cel mai recent email.'); }
   }
 });
 
