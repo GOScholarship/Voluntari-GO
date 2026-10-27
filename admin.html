@@ -159,22 +159,39 @@ function field(id, label, val, type = 'text', extra = '') {
 function formView() {
   const e = S.edit || {};
   return `<button class="back" data-a="${e.id ? 'open' : 'home'}" data-id="${e.id || ''}">‹ Înapoi</button>
-  <div class="top"><h1>${e.id ? 'Editează evenimentul' : 'Eveniment nou'}</h1></div>
-  <form data-f="event"><div class="card">
-  ${field('title', 'Denumire', e.title, 'text', 'required')}
-  ${field('st', 'Început', loc(e.starts_at), 'datetime-local', 'required')}
-  ${field('en', 'Sfârșit', loc(e.ends_at), 'datetime-local', 'required')}
-  ${field('loc', 'Locație', e.location, 'text', 'required')}
-  ${field('map', 'Link hartă (opțional)', e.map_url, 'url')}
-  <label for="desc">Descriere</label><textarea id="desc">${esc(e.description)}</textarea>
-  ${field('cap', 'Număr de voluntari necesari', e.capacity, 'number', 'min="1" required')}
-  ${field('cn', 'Persoană de contact', e.contact_name)}
-  ${field('cp', 'Telefon contact', e.contact_phone, 'tel')}
-  ${field('mp', 'Punct de întâlnire', e.meeting_point)}
-  ${field('mt', 'Ora de întâlnire (opțional)', loc(e.meet_at), 'datetime-local')}
-  <label for="po">Afiș (opțional, imagine; se micșorează automat)</label><input id="po" type="file" accept="image/*">
-  ${e.poster_url ? `<p class="m" style="margin:-6px 0 8px">Are deja un afiș. Alege o imagine nouă doar dacă vrei să-l înlocuiești.</p>` : ''}</div>
-  <button class="btn">${e.id ? 'Salvează modificările' : 'Publică evenimentul'}</button></form>`;
+  <h2>${e.id ? 'Editează Eveniment' : 'Eveniment Nou'}</h2>
+  
+  <form>
+    <!-- SECȚIUNEA 1: Detalii Principale -->
+    <div style="background:#f9f9f9; padding:16px; border-radius:8px; margin-bottom:16px; border:1px solid #eee;">
+      <h3 style="margin-top:0; font-size:16px; color:#333;">📋 1. Informații Generale</h3>
+      ${field('title', 'Titlu eveniment *', e.title || '', 'text', 'required')}
+      ${field('desc', 'Descriere', e.description || '', 'textarea')}
+      <label for="po">Afiș eveniment</label>
+      <input id="po" type="file" accept="image/*">
+    </div>
+
+    <!-- SECȚIUNEA 2: Dată, Oră & Locație -->
+    <div style="background:#f9f9f9; padding:16px; border-radius:8px; margin-bottom:16px; border:1px solid #eee;">
+      <h3 style="margin-top:0; font-size:16px; color:#333;">📍 2. Program și Locație</h3>
+      ${field('st', 'Începe la *', e.starts_at ? new Date(e.starts_at).toISOString().slice(0,16) : '', 'datetime-local', 'required')}
+      ${field('en', 'Se termină la *', e.ends_at ? new Date(e.ends_at).toISOString().slice(0,16) : '', 'datetime-local', 'required')}
+      ${field('loc', 'Locație (Adresă/Oraș) *', e.location || '', 'text', 'required')}
+      ${field('map', 'Link Google Maps', e.map_url || '', 'url')}
+      ${field('mp', 'Punct de întâlnire (Meeting point)', e.meeting_point || '')}
+      ${field('mt', 'Ora întâlnirii (Meet at)', e.meet_at ? new Date(e.meet_at).toISOString().slice(0,16) : '', 'datetime-local')}
+    </div>
+
+    <!-- SECȚIUNEA 3: Capacitate & Contact -->
+    <div style="background:#f9f9f9; padding:16px; border-radius:8px; margin-bottom:16px; border:1px solid #eee;">
+      <h3 style="margin-top:0; font-size:16px; color:#333;">👥 3. Capacitate și Contact</h3>
+      ${field('cap', 'Capacitate maximă (locuri) *', e.capacity || '10', 'number', 'required')}
+      ${field('cn', 'Nume persoană contact', e.contact_name || '')}
+      ${field('cp', 'Telefon contact', e.contact_phone || '', 'tel')}
+    </div>
+
+    <button class="btn" type="submit">Salvează evenimentul</button>
+  </form>`;
 }
 
 const LBL = { confirmed: 'Voluntar', offered: 'Loc rezervat', waitlist: 'Așteptare' };
