@@ -144,7 +144,10 @@ function listView() {
   return `<div class="top"><h1>Admin</h1><a href="index.html">Aplicația</a></div>
   <button class="btn" data-a="new">Eveniment nou</button>${searchBox}${filters}${cards || `<div class="card"><p class="m">Niciun eveniment găsit în această categorie.</p></div>`}`;
 }
-
+function field(id, label, val, type = 'text', extra = '') {
+  return `<label for="${id}">${label}</label><input id="${id}" type="${type}" value="${esc(val)}" ${extra}>`;
+}
+  
 function formView() {
   const e = S.edit || {};
   return `<button class="back" data-a="${e.id ? 'open' : 'home'}" data-id="${e.id || ''}">‹ Înapoi</button>
