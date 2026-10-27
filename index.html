@@ -120,9 +120,7 @@ async function load() {
   S.me = me.data || S.me;
   
   const newNotes = nt.data || [];
-  if (newNotes.length > S.notes.length && S.notes.length >= 0) {
-    toast("🔔 Anunț nou: " + newNotes[0].message);
-  }
+
   S.notes = newNotes;
   S.loading = false;
 
@@ -191,7 +189,6 @@ function listView() {
   const searchBox = `<div style="margin: 0 16px 12px;">
     <input type="text" id="search-events" placeholder="🔍 Caută eveniment sau locație..." value="${esc(S.q)}" style="margin:0; background:#fff;">
   </div>`;
-  const notes = S.notes.length ? S.notes.map(n => `<div class="card offer"><p style="margin:0">${esc(n.message)}</p></div>`).join('') + '<button class="btn o" data-a="seen">Am văzut</button>' : '';
   
   if (S.loading) {
     return pageTop('Evenimente') + notes + searchBox + '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>' +
