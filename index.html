@@ -408,24 +408,24 @@ function updateBadge() {
   const badge = document.getElementById('notif-badge');
   if (!badge) return;
   const lastRead = Number(localStorage.getItem('last_read_notif') || 0);
-  const notesList = S.notes || [];
   
-  // O notificare este necitită dacă created_at este strict după lastRead
+  // Excludem notificările șterse local
+  const deletedIds = JSON.parse(localStorage.getItem('deleted_notifs') || '[]');
+  const notesList = (S.notes || []).filter(n => !deletedIds.includes(n.id));
+  
   const hasUnread = notesList.some(n => new Date(n.created_at).getTime() > lastRead);
   badge.style.display = hasUnread ? 'block' : 'none';
 }
 
-// Șterge toate notificările din baza de date și din ecran
-async function clearAllNotifications() {
+// Șterge toate notificările doar pentru acest utilizator (salvat în localStorage)
+function clearAllNotifications() {
   if (!confirm('Sigur vrei să ștergi toate notificările?')) return;
   
-  // Ștergem din baza de date Supabase (presupunând că avem id-uri sau le ștergem pe toate ale userului/generale)
-  const ids = (S.notes || []).map(n => n.id);
-  if (ids.length > 0) {
-    await db.from('notifications').delete().in('id', ids);
-  }
+  // Salvăm ID-urile tuturor notificărilor curente ca fiind șterse
+  const allIds = (S.notes || []).map(n => n.id);
+  localStorage.setItem('deleted_notifs', JSON.stringify(allIds));
   
-  S.notes = [];
+  // Setăm totul ca citit și actualizăm interfața
   localStorage.setItem('last_read_notif', Date.now());
   updateBadge();
   openNotifDrawer();
@@ -439,7 +439,9 @@ function openNotifDrawer() {
   const lastRead = Number(localStorage.getItem('last_read_notif') || 0);
   
   if (list) {
-    const notesList = S.notes || [];
+    const deletedIds = JSON.parse(localStorage.getItem('deleted_notifs') || '[]');
+    const notesList = (S.notes || []).filter(n => !deletedIds.includes(n.id));
+
     if (notesList.length === 0) {
       list.innerHTML = `
         <div style="padding:8px 16px; background:#f9f9f9; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
@@ -477,7 +479,7 @@ function openNotifDrawer() {
   if (drawer) drawer.classList.add('open');
   if (overlay) overlay.classList.add('open');
 
-  // Setăm timpul curent ca fiind momentul în care le-a citit deschizând sertarul
+  // Marcăm ca citite la deschidere
   localStorage.setItem('last_read_notif', Date.now());
   updateBadge();
 }
