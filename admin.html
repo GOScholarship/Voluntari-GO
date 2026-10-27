@@ -143,12 +143,28 @@ function eventView() {
   const rowsOf = (s, act) => by(s).map(r => `<div class="r"><span>${esc(r.full_name)}<br><span class="m">${esc(r.email)}${s === 'offered' ? ' · până la ' + fT(r.offer_expires_at) : ''}</span></span>${act(r)}</div>`).join('');
   const rm = r => `<button class="sm" data-a="rm" data-u="${r.user_id}">Scoate</button>`;
   const off = by('offered').map(r => `<div class="r"><span>${esc(r.full_name)}<br><span class="m">până la ${fT(r.offer_expires_at)}</span></span><button class="sm" data-a="skip" data-u="${r.user_id}">Treci peste</button></div>`).join('');
+  
   return `<button class="back" data-a="home">‹ Toate evenimentele</button>
   <div class="top"><h1>${esc(e.title)}</h1></div>
   <div class="card${e.status === 'cancelled' ? ' x' : ''}"><p class="m" style="margin:0">${esc(fD(e.starts_at))} · ${fT(e.starts_at)}–${fT(e.ends_at)} · ${esc(e.location)}</p>
   <span class="tag">${e.confirmed_count + e.offered_count}/${e.capacity} locuri</span>${e.status === 'cancelled' ? '<span class="tag g">Anulat</span>' : ''}</div>
+  
   <button class="btn" data-a="edit">Editează evenimentul</button>
   <button class="btn o" data-a="cancel">${e.status === 'cancelled' ? 'Reactivează evenimentul' : 'Anulează evenimentul'}</button>
+  
+  <div class="s">Trimite notificare voluntarilor de la acest eveniment</div>
+  <div class="card offer">
+    <label for="ev-msg">Mesaj pentru participanți</label>
+    <textarea id="ev-msg" placeholder="Ex: Ne vedem la ora 09:00 la intrare!" style="margin-bottom:8px;"></textarea>
+    <label for="ev-target">Către cine se trimite?</label>
+    <select id="ev-target" style="margin-bottom:10px;">
+      <option value="all">Toți înscrișii (Confirmați + Așteptare)</option>
+      <option value="confirmed">Doar voluntarii confirmați</option>
+      <option value="waitlist">Doar cei de pe lista de așteptare</option>
+    </select>
+    <button class="sm" data-a="send-event-broadcast" style="width:100%; min-height:42px;">📢 Trimite notificare grupului</button>
+  </div>
+
   ${by('offered').length ? `<div class="s">Locuri rezervate (așteaptă confirmare)</div><div class="card offer">${off}
   <label for="to" style="margin-top:10px;display:block">Sau alege tu cine primește locul</label><select id="to">${opts}</select>
   <button class="sm" data-a="reassign">Dă locul persoanei alese</button></div>` : ''}
@@ -230,6 +246,26 @@ document.addEventListener('click', async x => {
   else if (a === 'reassign' && val('to')) {
     const o = S.rows.find(r => r.status === 'offered');
     if (o) await rpc('admin_reassign_offer', { p_event: S.id, p_from: o.user_id, p_to: val('to') });
+  }
+  else if (a === 'send-event-broadcast') {
+    const msg = val('ev-msg')?.trim();
+    const target = val('ev-target');
+    if (!msg) return toast('Scrie un mesaj mai întâi.');
+    
+    let targetUsers = S.rows;
+    if (target === 'confirmed') targetUsers = S.rows.filter(r => r.status === 'confirmed');
+    if (target === 'waitlist') targetUsers = S.rows.filter(r => r.status === 'waitlist');
+    
+    if (targetUsers.length === 0) return toast('Nu există voluntari în categoria selectată.');
+
+    const eventObj = ev();
+    const finalMsg = `[${eventObj.title}] ${msg}`;
+    
+    const { error } = await db.from('notifications').insert({ message: finalMsg });
+    if (error) return toast('Eroare: ' + error.message);
+    
+    document.getElementById('ev-msg').value = '';
+    toast('Notificarea a fost trimisă cu succes!');
   }
   else if (a === 'csv') csv();
 });
