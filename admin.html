@@ -166,7 +166,7 @@ function formView() {
     <div style="background:#f9f9f9; padding:16px; border-radius:8px; margin-bottom:16px; border:1px solid #eee;">
       <h3 style="margin-top:0; font-size:16px; color:#333;">📋 1. Informații Generale</h3>
       ${field('title', 'Titlu eveniment *', e.title || '', 'text', 'required')}
-      ${field('desc', 'Descriere', e.description || '', 'textarea')}
+      <label for="desc">Descriere</label><textarea id="desc" style="min-height:90px;padding-top:10px">${esc(e.description || '')}</textarea>
       <label for="po">Afiș eveniment</label>
       <input id="po" type="file" accept="image/*">
     </div>
@@ -174,18 +174,18 @@ function formView() {
     <!-- SECȚIUNEA 2: Dată, Oră & Locație -->
     <div style="background:#f9f9f9; padding:16px; border-radius:8px; margin-bottom:16px; border:1px solid #eee;">
       <h3 style="margin-top:0; font-size:16px; color:#333;">📍 2. Program și Locație</h3>
-      ${field('st', 'Începe la *', e.starts_at ? new Date(e.starts_at).toISOString().slice(0,16) : '', 'datetime-local', 'required')}
-      ${field('en', 'Se termină la *', e.ends_at ? new Date(e.ends_at).toISOString().slice(0,16) : '', 'datetime-local', 'required')}
+      ${field('st', 'Începe la *', loc(e.starts_at), 'datetime-local', 'required')}
+      ${field('en', 'Se termină la *', loc(e.ends_at), 'datetime-local', 'required')}
       ${field('loc', 'Locație (Adresă/Oraș) *', e.location || '', 'text', 'required')}
       ${field('map', 'Link Google Maps', e.map_url || '', 'url')}
-      ${field('mp', 'Punct de întâlnire (Meeting point)', e.meeting_point || '')}
-      ${field('mt', 'Ora întâlnirii (Meet at)', e.meet_at ? new Date(e.meet_at).toISOString().slice(0,16) : '', 'datetime-local')}
+      ${field('mp', 'Punct de întâlnire', e.meeting_point || '')}
+      ${field('mt', 'Ora de întâlnire (opțional)', loc(e.meet_at), 'datetime-local')}
     </div>
 
     <!-- SECȚIUNEA 3: Capacitate & Contact -->
     <div style="background:#f9f9f9; padding:16px; border-radius:8px; margin-bottom:16px; border:1px solid #eee;">
       <h3 style="margin-top:0; font-size:16px; color:#333;">👥 3. Capacitate și Contact</h3>
-      ${field('cap', 'Capacitate maximă (locuri) *', e.capacity || '10', 'number', 'required')}
+      ${field('cap', 'Capacitate maximă (locuri) *', e.capacity || '10', 'number', 'min="1" required')}
       ${field('cn', 'Nume persoană contact', e.contact_name || '')}
       ${field('cp', 'Telefon contact', e.contact_phone || '', 'tel')}
     </div>
@@ -210,7 +210,7 @@ function eventView() {
   const rowsHtml = S.rows.length === 0 ? `<p class="m" style="padding:12px;">Niciun voluntar înscris încă.</p>` : S.rows.map(r => {
     let badgeBg = '#eee', badgeColor = '#333', statusLabel = r.status;
     if (r.status === 'confirmed') { badgeBg = '#e6f4ea'; badgeColor = '#137333'; statusLabel = 'Confirmat'; }
-    else if (r.status === 'offered') { badgeBg = '#fef7e0'; badgeColor = '#b06000'; statusLabel = 'Ofertat'; }
+    else if (r.status === 'offered') { badgeBg = '#fef7e0'; badgeColor = '#b06000'; statusLabel = 'Loc rezervat'; }
     else if (r.status === 'waitlist') { badgeBg = '#e8f0fe'; badgeColor = '#1967d2'; statusLabel = 'În așteptare'; }
     else if (r.status === 'cancelled') { badgeBg = '#fce8e6'; badgeColor = '#c5221f'; statusLabel = 'Anulat'; }
 
@@ -267,10 +267,12 @@ function eventView() {
     <button class="sm" data-a="send-event-broadcast">Trimite notificarea</button>
   </div>
 
+  ${S.rows.some(r => r.status === 'offered') ? `<div class="card" style="background:var(--tint);border-color:#F2C19B"><b>Loc rezervat</b><p class="m" style="margin-bottom:8px">Alege tu cine primește locul rezervat:</p><select id="to" style="background:#fff">${opts}</select><button class="sm" data-a="reassign">Dă locul persoanei alese</button></div>` : ''}
   <h3 style="margin-bottom:8px;">Voluntari înscriși (${S.rows.length})</h3>
   <div class="card" style="padding:0; overflow:hidden;">
     ${rowsHtml}
   </div>
+  <button class="btn o" data-a="csv" style="margin:12px 0 0;width:100%">Descarcă lista (Excel)</button>
 
   <div style="background:#fff; padding:16px; border-radius:8px; border:1px solid #eee; margin-top:16px;">
     <h3 style="margin-top:0; font-size:15px;">⚙️ Adaugă voluntar la eveniment</h3>
@@ -353,7 +355,7 @@ document.addEventListener('click', async x => {
     const targetUser = S.modalData?.id;
     const { error } = await db.from('notifications').insert({ 
       message: finalMsg, 
-      user_id: targetUser 
+      user_id: targetUser, event_id: S.id 
     });
     if (error) return toast('Eroare: ' + error.message);
     toast('Mesaj privat trimis!');
@@ -414,7 +416,7 @@ document.addEventListener('click', async x => {
           } else {
             const eventObj = ev();
             const finalMsg = `[${eventObj.title}] ${msg}`;
-            const { error } = await db.from('notifications').insert({ message: finalMsg });
+            const { error } = await db.from('notifications').insert(targetUsers.map(r => ({ user_id: r.user_id, event_id: S.id, message: finalMsg })));
             if (error) {
               toast('Eroare: ' + error.message);
             } else {
@@ -424,6 +426,7 @@ document.addEventListener('click', async x => {
           }
         }
       }
+      else if (a === 'csv') csv();
       else if (a === 'filter') {
         S.filter = el.dataset.val;
         render();

@@ -85,11 +85,13 @@ a{color:var(--mag)}
 .notif-overlay.open{display:block}
 .chk{display:flex;gap:8px;align-items:flex-start;font-weight:400;margin:0 0 14px;font-size:14px}
 .chk input{margin-top:3px;width:20px;height:20px}
+#toast{position:fixed;left:16px;right:16px;bottom:76px;background:#14201A;color:#fff;padding:12px 14px;border-radius:12px;display:none;font-size:14px;z-index:120}
 </style>
 </head>
 <body>
 <div class="stripe"></div>
 <main id="app"></main>
+<div id="toast" role="status"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <script>
 const db = supabase.createClient('https://sdhhzptvbkmeazrqkncw.supabase.co', 'sb_publishable_adna1O2TC3b99dIjxlU9Rw_SLvo8GYR');
@@ -101,13 +103,14 @@ const fD = d => new Intl.DateTimeFormat('ro-RO', { weekday: 'long', day: 'numeri
 const fT = d => new Intl.DateTimeFormat('ro-RO', { hour: '2-digit', minute: '2-digit', timeZone: TZ }).format(new Date(d));
 
 function toast(m) {
-  console.log('Toast:', m);
+  const t = document.getElementById('toast');
+  t.textContent = m; t.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', 5000);
 }
 
 async function load() {
   if (!S.session) return render();
-  S.loading = true;
-render();
+  if (!S.loaded) { S.loading = true; render(); }
   await db.rpc('refresh_offers');
   const [ev, su, me, nt] = await Promise.all([
     db.from('events').select('*').gt('ends_at', new Date().toISOString()).order('starts_at'),
@@ -122,7 +125,7 @@ render();
   const newNotes = nt.data || [];
 
   S.notes = newNotes;
-  S.loading = false;
+  S.loading = false; S.loaded = true;
 
 if (S.view === 'detail') {
     const r = await db.rpc('event_roster', { p_event: S.id });
@@ -152,6 +155,7 @@ function render() {
     }
     
     $.innerHTML = html;
+    updateBadge();
   }
 
 function authView() {
@@ -331,77 +335,12 @@ document.addEventListener('submit', async ev => {
 let t;
 const later = () => { clearTimeout(t); t = setTimeout(load, 300); };
 db.auth.onAuthStateChange((_e, session) => {
-  S.session = session; if (!session) { S.me = null; S.view = 'list'; S.step = 'form'; }
+  S.session = session; if (!session) { S.me = null; S.loaded = false; S.view = 'list'; S.step = 'form'; }
   load();
 });
 db.channel('live').on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, later)
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, later).subscribe();
-
-let notifications = [];
-
-db.channel('notif-realtime').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, payload => {
-  notifications.unshift(payload.new);
-  renderNotifications();
-  updateBadge(); // <-- Asta aprinde bulina roșie instant
-}).subscribe();
-
-async function loadNotifications() {
-  const { data } = await db.from('notifications').select('*').order('created_at', { ascending: false }).limit(20);
-  notifications = data || [];
-  renderNotifications();
-}
-
-function renderNotifications() {
-  const badge = document.getElementById('bell-badge');
-  const list = document.getElementById('notif-list');
-  if (!badge || !list) return;
-
-  const readIds = JSON.parse(localStorage.getItem('read_notifs') || '[]');
-  const unreadCount = notifications.filter(n => !readIds.includes(n.id)).length;
-  
-  if (unreadCount > 0) {
-    badge.textContent = unreadCount;
-    badge.style.display = 'inline-block';
-  } else {
-    badge.style.display = 'none';
-  }
-
-  if (notifications.length === 0) {
-    list.innerHTML = '<p class="m">Nu ai nicio notificare.</p>';
-    return;
-  }
-
-  list.innerHTML = notifications.map(n => {
-    const isUnread = !readIds.includes(n.id);
-    const dateStr = new Date(n.created_at).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
-    return `<div class="notif-item${isUnread ? ' unread' : ''}">
-      <div>${esc(n.message)}</div>
-      <div class="notif-time">${dateStr}</div>
-    </div>`;
-  }).join('');
-}
-
-document.addEventListener('click', e => {
-  const drawer = document.getElementById('notif-drawer');
-  const overlay = document.getElementById('notif-overlay');
-  
-  if (e.target.closest('#btn-bell')) {
-    drawer.classList.add('open');
-    overlay.classList.add('open');
-    localStorage.setItem('read_notifs', JSON.stringify(notifications.map(n => n.id)));
-    renderNotifications();
-  }
-  
-  if (e.target.closest('#close-notif') || e.target.id === 'notif-overlay') {
-    drawer.classList.remove('open');
-    overlay.classList.remove('open');
-  }
-});
-
-db.channel('notif-realtime').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, payload => {
-  notifications.unshift(payload.new);
-  renderNotifications();
-}).subscribe();
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'signups' }, later)
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, later).subscribe();
 
 // Actualizează vizibilitatea bulinei roșii
 function updateBadge() {
